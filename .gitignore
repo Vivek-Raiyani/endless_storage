@@ -1,0 +1,110 @@
+# ==========================================
+# Backend (Python / FastAPI)
+# ==========================================
+
+# Bytecode & Caches
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual Environments
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Local Databases (SQLite, etc.)
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.sqlite3-journal
+
+# Local Media / Storage Uploads
+uploads/
+media/
+
+# Testing & Coverage
+.cache
+.pytest_cache/
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+
+# Type Checking & Linters
+.mypy_cache/
+.pyre/
+.pytype/
+.ruff_cache/
+
+
+# ==========================================
+# Frontend (Next.js / Node / React)
+# ==========================================
+
+# Dependencies
+node_modules/
+.pnp/
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# Next.js Build Outputs
+.next/
+out/
+
+# Production Builds
+build/
+dist/
+
+# Testing
+coverage/
+
+# Debug Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+pnpm-debug.log*
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Vercel
+.vercel/
+
+
+# ==========================================
+# Environment & Secrets (Backend & Frontend)
+# ==========================================
+.env
+.env.*
+*.env
+!.env.example
+*.pem
+*.key
+*.cert
+
+
+# ==========================================
+# IDE & System Files
+# ==========================================
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo

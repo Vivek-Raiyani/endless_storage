@@ -1,27 +1,45 @@
 from typing import AsyncGenerator
-from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import Depends, HTTPException, Request, status
 from jose import jwt, JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from pydantic import ValidationError
 import uuid
+import logging
+
+logger = logging.getLogger(__name__)
 
 from app.core.config import settings
 from app.core.database import SessionLocal
 from app.models.user import User
-from app.schemas.token import TokenPayload
 
-reusable_oauth2 = HTTPBearer()
+from app.schemas.token import TokenPayload
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     async with SessionLocal() as db:
         yield db
 
+def _extract_token_from_cookie(request: Request) -> str:
+    """Extract and validate the raw JWT string from the access_token cookie."""
+    cookie_value = request.cookies.get("access_token")
+    if not cookie_value:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+        )
+    # Cookie is stored as "Bearer <token>"
+    if not cookie_value.startswith("Bearer "):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication scheme",
+        )
+    return cookie_value[len("Bearer "):]
+
 async def get_current_user(
-    db: AsyncSession = Depends(get_db), token_credentials: HTTPAuthorizationCredentials = Depends(reusable_oauth2)
+    request: Request, db: AsyncSession = Depends(get_db)
 ) -> User:
-    token = token_credentials.credentials
+    logger.info("Authenticating user via cookie")
+    token = _extract_token_from_cookie(request)
     try:
         payload = jwt.decode(
             token, settings.SECRET_KEY, algorithms=["HS256"]

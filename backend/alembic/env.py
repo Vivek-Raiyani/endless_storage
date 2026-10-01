@@ -37,6 +37,14 @@ target_metadata = Base.metadata
 # ... etc.
 
 
+def compare_type(context, inspected_column, metadata_column, inspected_type, metadata_type):
+    # Ignore false-positive type changes for SQLite UUIDs
+    if context.dialect.name == "sqlite":
+        import sqlalchemy as sa
+        if isinstance(inspected_type, sa.NUMERIC) and isinstance(metadata_type, sa.UUID):
+            return False
+    return None
+
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
 
@@ -55,6 +63,7 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        compare_type=compare_type,
     )
 
     with context.begin_transaction():
@@ -76,7 +85,10 @@ def run_migrations_online() -> None:
 
     with connectable.connect() as connection:
         context.configure(
-            connection=connection, target_metadata=target_metadata, render_as_batch=True
+            connection=connection, 
+            target_metadata=target_metadata, 
+            render_as_batch=True,
+            compare_type=compare_type,
         )
 
         with context.begin_transaction():
@@ -87,3 +99,4 @@ if context.is_offline_mode():
     run_migrations_offline()
 else:
     run_migrations_online()
+

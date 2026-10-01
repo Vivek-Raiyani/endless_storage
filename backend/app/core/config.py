@@ -4,11 +4,36 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "FastAPI Template"
     SERVER_HOST: str = "http://localhost:8000"
     DATABASE_URL: str
-    SECRET_KEY: str
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 300
     STORAGE_PROVIDER: str = "local"
     FRONTEND_URL: str = "http://localhost:3000"
-    
+    BACKEND_CORS_ORIGINS: list[str] = ["*"]
+
+    # Auth Settings
+    SECRET_KEY: str
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 300
+    REFRESH_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+
+    # Set to True in production when serving over HTTPS
+    COOKIE_SECURE: bool = False
+
+    # Asset Settings
+    ALLOWED_IMAGE_TYPES: set[str] = {"image/jpeg", "image/png", "image/gif", "image/webp"}
+    ALLOWED_VIDEO_TYPES: set[str] = {"video/mp4", "video/mpeg", "video/quicktime"}
+    ALLOWED_EXTENSIONS: set[str] = {"jpg", "jpeg", "png", "gif", "webp", "mp4", "mpeg", "mov"}
+    MAX_IMAGE_SIZE: int = 10 * 1024 * 1024 # 10MB
+    MAX_VIDEO_SIZE: int = 50 * 1024 * 1024 # 50MB
+
+    # Email Settings
+    EMAIL_PROVIDER: str = "smtp"
+    SMTP_HOST: str | None = None
+    SMTP_PORT: int = 587
+    SMTP_USER: str | None = None
+    SMTP_PASSWORD: str | None = None
+    EMAILS_FROM_EMAIL: str = "info@clickcapturr.com"
+    RESEND_API_KEY: str | None = None
+
     # AWS S3 Settings
     AWS_ENDPOINT: str | None = None
     AWS_ACCESS_KEY_ID: str | None = None
@@ -20,6 +45,8 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_ID: str | None = None
     GOOGLE_CLIENT_SECRET: str | None = None
 
+    # YouTube API
+    YOUTUBE_API_KEY: str | None = None
 
     model_config = SettingsConfigDict(env_file=".env", env_ignore_empty=True, extra="ignore")
 

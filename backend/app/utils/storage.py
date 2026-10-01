@@ -29,8 +29,14 @@ class StorageProvider(ABC):
         For cloud providers this generates a fresh presigned URL.
         For local storage this returns a static URL.
         """
+    @abstractmethod
+    def generate_upload_url(self, user_id: str, service: str, filename: str, file_size: int) -> tuple[str, str, dict]:
+        """
+        Generates a URL (and fields) for direct upload.
+        Returns:
+            (storage_key, upload_url, fields_dict)
+        """
         pass
-
 
 class LocalStorageProvider(StorageProvider):
     """Implementation for local file system storage."""
@@ -61,6 +67,16 @@ class LocalStorageProvider(StorageProvider):
     def get_file_url(self, storage_key: str) -> str:
         return f"{settings.SERVER_HOST.rstrip('/')}/{self.base_dir}/{storage_key}"
 
+    def generate_upload_url(self, user_id: str, service: str, filename: str, file_size: int) -> tuple[str, str, dict]:
+        key = self._storage_key(user_id, service, filename)
+        # For local, we return a URL to our own backend's local upload handler.
+        # The frontend will hit this endpoint, which will save the file.
+        # We don't have the asset ID here, so we will pass the storage_key in the response 
+        # but the actual URL mapping is better handled by the asset service which generates the asset_id.
+        # Let's just return a placeholder URL and fields.
+        upload_url = f"{settings.SERVER_HOST.rstrip('/')}/api/assets/local-upload"
+        return key, upload_url, {}
+
 
 class CloudStorageProvider(StorageProvider):
     """Implementation for AWS S3 cloud storage using presigned URLs."""
@@ -80,9 +96,7 @@ class CloudStorageProvider(StorageProvider):
         self.bucket_name = settings.AWS_BUCKET_NAME
         self.region = settings.AWS_REGION_NAME
         self.presigned_expiry = presigned_expiry  # seconds
-        # Backblaze B2 (and other S3-compatible providers) require explicit
-        # Signature Version 4; without this boto3 may use SigV2 which B2
-        # accepts for uploads but silently ignores for deletes.
+        
         self.s3_client = boto3.client(
             "s3",
             endpoint_url=self.endpoint_url,
@@ -110,13 +124,35 @@ class CloudStorageProvider(StorageProvider):
         return True
 
     def get_file_url(self, storage_key: str) -> str:
-        """Generates a fresh presigned URL valid for `presigned_expiry` seconds."""
         return self.s3_client.generate_presigned_url(
             "get_object",
             Params={"Bucket": self.bucket_name, "Key": storage_key},
             ExpiresIn=self.presigned_expiry,
         )
 
+    def generate_upload_url(self, user_id: str, service: str, filename: str, file_size: int) -> tuple[str, str, dict]:
+        key = self._storage_key(user_id, service, filename)
+        
+        response = self.s3_client.generate_presigned_post(
+            Bucket=self.bucket_name,
+            Key=key,
+            Conditions=[
+                ["content-length-range", 0, file_size + 1024]
+            ],
+            ExpiresIn=self.presigned_expiry
+        )
+        return key, response['url'], response['fields']
+
+
+class GDriveStorageProvider(StorageProvider):
+    def __init__(self, presigned_expiry: int = 3600):
+        pass
+    def upload_file(self, user_id: str, service: str, filename: str, file_bytes: bytes) -> tuple[str, str]:
+        pass
+    def delete_file(self, storage_key: str) -> bool:
+        pass
+    def get_file_url(self, storage_key: str) -> str:
+        pass
 
 def get_storage_provider() -> StorageProvider:
     """Factory to return the configured storage provider."""
@@ -124,7 +160,7 @@ def get_storage_provider() -> StorageProvider:
 
     if provider == "local":
         return LocalStorageProvider()
-    elif provider in ("cloud", "s3"):
+    elif provider == "s3":
         return CloudStorageProvider()
     else:
         raise ValueError(f"Unsupported storage provider: {provider}")

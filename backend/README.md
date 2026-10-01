@@ -30,6 +30,24 @@ Because of our dynamic Alembic configuration in `alembic/env.py`, all model file
 ```bash
 alembic revision --autogenerate -m "Description of your changes"
 ```
+Important For the Future: Whenever you run alembic revision --autogenerate on this SQLite database, Alembic will likely try to generate those same NUMERIC() -> UUID() alterations again. Always double-check the generated .py file before running alembic upgrade head and delete any lines attempting to alter_column on your UUID id fields!
+
+(Note: When you deploy to a production database like PostgreSQL, Postgres natively supports UUIDs, so you won't encounter this false-positive issue there).
+
+```python
+def compare_type(context, inspected_column, metadata_column, inspected_type, metadata_type):
+    # Ignore false-positive type changes for SQLite UUIDs
+    if context.dialect.name == "sqlite":
+        import sqlalchemy as sa
+        if isinstance(inspected_type, sa.NUMERIC) and isinstance(metadata_type, sa.UUID):
+            return False # Tell Alembic to ignore this difference!
+    return None
+```
+
+**Why this works permanently:**
+By passing this function into `context.configure(...)`, Alembic will now safely ignore the discrepancy where it sees `NUMERIC` in SQLite but `UUID` in your Python models. It will no longer generate the destructive `alter_column` commands, which means you won't accidentally wipe your tables or have to manually delete those lines in the future!
+
+You can safely remove the "Important For the Future" warning you added to your `README.md` if you'd like, because Alembic is now smart enough to handle this automatically!
 
 ### 2. Applying Migrations
 To apply pending migrations to your database:

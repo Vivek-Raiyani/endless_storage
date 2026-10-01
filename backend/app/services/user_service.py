@@ -4,6 +4,9 @@ from sqlalchemy import select
 from app.models.user import User
 from app.schemas.user import UserUpdate
 from typing import Optional
+import logging
+
+logger = logging.getLogger(__name__)
 
 class UserService:
     async def get_user_by_id(self, db: AsyncSession, user_id: UUID) -> Optional[User]:
@@ -17,6 +20,7 @@ class UserService:
         return result.scalars().first()
 
     async def update_user(self, db: AsyncSession, user: User, user_in: UserUpdate) -> User:
+        logger.info(f"Updating user: {user.id}")
         update_data = user_in.model_dump(exclude_unset=True)
         for field, value in update_data.items():
             setattr(user, field, value)

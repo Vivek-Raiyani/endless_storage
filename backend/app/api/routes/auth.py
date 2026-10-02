@@ -2,8 +2,8 @@ from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from authlib.integrations.starlette_client import OAuth
 
+from app.utils.oauth_clients import oauth
 from app.api import deps
 from app.core.config import settings
 from app.core.security import (
@@ -11,37 +11,18 @@ from app.core.security import (
     create_verification_token, create_reset_password_token, get_password_hash
 )
 from app.schemas.token import Token, TokenPayload
-from app.schemas.user import UserCreate, UserOut, UserLogin, UserCreateOAuth
+from app.schemas.user import UserCreate, UserOut, UserLogin, UserCreateOAuth, ForgotPasswordRequest, ResetPasswordRequest
 from app.schemas.response import DataResponse, MessageResponse
 from app.services import auth_service
 from app.models.user import User
 from app.utils.emails import email_provider
 from jose import jwt, JWTError
-from pydantic import BaseModel, EmailStr
 import logging
 
 logger = logging.getLogger(__name__)
 
-class ForgotPasswordRequest(BaseModel):
-    email: EmailStr
-
-class ResetPasswordRequest(BaseModel):
-    token: str
-    new_password: str
-
 
 router = APIRouter()
-
-oauth = OAuth()
-oauth.register(
-    name='google',
-    client_id=settings.GOOGLE_CLIENT_ID or "placeholder",
-    client_secret=settings.GOOGLE_CLIENT_SECRET or "placeholder",
-    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
-    client_kwargs={
-        'scope': 'openid email profile'
-    }
-)
 
 @router.post("/signup", response_model=DataResponse[UserOut])
 async def signup(

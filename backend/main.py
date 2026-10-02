@@ -43,9 +43,6 @@ app.add_middleware(
     allow_headers=["*"],     # ✅ Fine
 )
 
-
-app.mount("/media", StaticFiles(directory="media"), name="media")
-
 app.include_router(api_router, prefix="/api")
 
 @app.get("/")

@@ -108,3 +108,7 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+
+# Internal Documentation & Tasks
+internal/
+frontend/

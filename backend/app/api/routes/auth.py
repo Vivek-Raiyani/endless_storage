@@ -42,10 +42,10 @@ async def signup(
     user = await auth_service.create_user(db, user_in=user_in)
     
     # Send verification email
-    verify_token = create_verification_token(user.email)
-    verify_link = f"{settings.FRONTEND_URL}/verify-email?token={verify_token}"
-    email_html = f"<h3>Welcome to ClickCapturr</h3><p>Please verify your email by clicking the link below:</p><a href='{verify_link}'>Verify Email</a>"
-    await email_provider.send_email(to_email=user.email, subject="Verify your email", html_content=email_html)
+    # verify_token = create_verification_token(user.email)
+    # verify_link = f"{settings.FRONTEND_URL}/verify-email?token={verify_token}"
+    # email_html = f"<h3>Welcome to ClickCapturr</h3><p>Please verify your email by clicking the link below:</p><a href='{verify_link}'>Verify Email</a>"
+    # await email_provider.send_email(to_email=user.email, subject="Verify your email", html_content=email_html)
 
     return DataResponse(data=user)
 

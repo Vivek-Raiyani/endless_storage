@@ -1,9 +1,11 @@
 import os
 import logging
 from fastapi import FastAPI
+from contextlib import asynccontextmanager
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
+from app.tasks.scheduler import setup_scheduler
 
 from app.api.router import api_router
 from app.core.config import settings
@@ -24,12 +26,24 @@ handler = logging.StreamHandler()
 handler.setFormatter(CustomFormatter('%(custom_prefix)s %(message)s'))
 logging.basicConfig(level=logging.INFO, handlers=[handler])
 
-# Ensure media directory exists
-os.makedirs("media", exist_ok=True)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: Initialize and start the APScheduler
+    scheduler = setup_scheduler()
+    scheduler.start()
+    logging.info("APScheduler started.")
+    
+    yield
+    
+    # Shutdown: Stop the scheduler
+    scheduler.shutdown()
+    logging.info("APScheduler stopped.")
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
-    openapi_url="/api/openapi.json"
+    openapi_url="/api/openapi.json",
+    lifespan=lifespan
 )
 
 # Required by Authlib for Starlette

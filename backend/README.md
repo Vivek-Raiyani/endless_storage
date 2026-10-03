@@ -1,126 +1,111 @@
-# FastAPI Boilerplate Documentation
+# Endless Storage Backend
 
-This guide covers everything you need to know to run your application, manage database migrations, and configure your database and storage integrations.
+Endless Storage is a cloud storage abstraction platform that aggregates multiple Google Drive accounts into a single, seamless, and "endless" storage pool. 
 
-## 🚀 Running the Server
+This backend is built on **FastAPI** (Python) using modern asynchronous programming (SQLAlchemy async + `aiosqlite`/PostgreSQL) to handle robust file chunking, distributed storage placement, and background migrations.
 
-FastAPI has a built-in CLI tool to run your application in development mode with hot-reloading.
+## ✨ Current Features
 
-```bash
-# Ensure your virtual environment is active
-.\venv\Scripts\activate
+- **Multi-Drive Aggregation**: Connect multiple Google Drive accounts via OAuth and pool their storage capacities together.
+- **File Chunking System**: Uploads are automatically split into fixed physical chunks (default 256MB). This bypasses single-file upload limits and allows a single virtual file to span across multiple physical drives!
+- **Dynamic Bin Packing Migrations**: When a user disconnects a drive, the system automatically runs a "Worst-Fit Decreasing" Bin Packing algorithm to pre-allocate chunks to remaining drives and then seamlessly migrates the files in the background without losing data.
+- **Robust Background Scheduler**: Uses `APScheduler` to run background jobs for processing pending file chunk migrations and deleting files without tying up the web server.
+- **Secure Token Storage**: Google Refresh Tokens are encrypted at rest using a symmetric Fernet key.
+- **Soft Deletion**: Virtual files are softly deleted, allowing for easy recovery or trash bin implementation.
 
-# Run the development server
-fastapi dev
-```
-Your server will be running at `http://127.0.0.1:8000`. You can explore your API endpoints via the interactive Swagger documentation at `http://127.0.0.1:8000/docs`.
+## 🚀 Performance & Limits
+
+- **Chunk Size**: Fixed at 256MB (`CHUNK_SIZE_BYTES`). This ensures optimal resumable upload performance to Google Drive while keeping the database index small.
+- **Migration Batching**: The background migration job (`migration.py`) processes a maximum of 20 chunks (~5GB) per account per execution to respect API quotas and prevent out-of-memory errors.
+- **Deletion Throttling**: The background deletion task processes chunks in batches of 1000 with a 5-second `asyncio.sleep()` between batches to strictly prevent Google Drive API rate-limiting.
+- **Polling Interval**: The background scheduler polls the database every 30 minutes for pending migrations.
+
+## 🚧 Missing Features & Roadmap
+
+- **No Backup / Redundancy Option**: Currently, each chunk is stored on exactly one drive (RAID 0 style). There is no "mirroring" or backup option yet. If a connected Google account gets banned or closed, that chunk is lost forever. Implementing erasure coding or 1:1 mirroring is a top priority.
+- **Partial Downloads**: We do not yet support byte-range requests spanning across multiple chunks for streaming video directly from the UI.
+- **Server-Side Migrations (No bandwidth costs)**: Migrations do NOT download chunks to the backend server. Instead, they leverage native Google Drive APIs to share the file from the old account to the new account, instruct the new account to make a native copy on Google's servers, and then delete the original. This means migrations cost 0 bandwidth!
 
 ---
 
-## 🗄️ Database Migrations
+## 🛠️ Complete Setup Instructions
 
-This project uses **Alembic** to manage database schema migrations. Since the application runs asynchronously, the migrations have been specifically configured to bridge the gap and run synchronously against your database.
-
-### 1. Generating a New Migration
-Whenever you modify your models (e.g., adding a new field or a new table in `app/models/`), you need to generate a migration script.
-
-**Note on Individual vs. Multiple Models:** 
-Because of our dynamic Alembic configuration in `alembic/env.py`, all model files placed inside the `app/models/` directory are automatically discovered. This means you **do not** need a special command to migrate a single model file versus a list of files. Whether you changed one file or ten, running the command below will automatically detect all the changes across your models and bundle them into the migration!
+### 1. Environment Setup
+Make sure you have Python 3.10+ installed.
 
 ```bash
-alembic revision --autogenerate -m "Description of your changes"
-```
-Important For the Future: Whenever you run alembic revision --autogenerate on this SQLite database, Alembic will likely try to generate those same NUMERIC() -> UUID() alterations again. Always double-check the generated .py file before running alembic upgrade head and delete any lines attempting to alter_column on your UUID id fields!
+# Clone the repository and enter the backend directory
+cd backend
 
-(Note: When you deploy to a production database like PostgreSQL, Postgres natively supports UUIDs, so you won't encounter this false-positive issue there).
+# Create and activate a virtual environment
+python -m venv venv
+# On Windows:
+.\venv\Scripts\activate
+# On Linux/Mac:
+source venv/bin/activate
 
-```python
-def compare_type(context, inspected_column, metadata_column, inspected_type, metadata_type):
-    # Ignore false-positive type changes for SQLite UUIDs
-    if context.dialect.name == "sqlite":
-        import sqlalchemy as sa
-        if isinstance(inspected_type, sa.NUMERIC) and isinstance(metadata_type, sa.UUID):
-            return False # Tell Alembic to ignore this difference!
-    return None
+# Install dependencies (Assuming a requirements.txt exists)
+pip install -r requirements.txt
 ```
 
-**Why this works permanently:**
-By passing this function into `context.configure(...)`, Alembic will now safely ignore the discrepancy where it sees `NUMERIC` in SQLite but `UUID` in your Python models. It will no longer generate the destructive `alter_column` commands, which means you won't accidentally wipe your tables or have to manually delete those lines in the future!
+### 2. Configuration (`.env`)
+Create a `.env` file in the root of the backend directory. You will need a Google Cloud Console project with the Drive API enabled.
 
-You can safely remove the "Important For the Future" warning you added to your `README.md` if you'd like, because Alembic is now smart enough to handle this automatically!
+```env
+# Server
+PORT=8000
 
-### 2. Applying Migrations
-To apply pending migrations to your database:
+# Database
+DATABASE_URL=sqlite+aiosqlite:///./endless_storage.db
+
+# Google OAuth Credentials
+GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+
+# Encryption Key (Must be a 32-byte url-safe base64 string)
+# Generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+TOKEN_ENCRYPTION_KEY=your_generated_fernet_key
+```
+
+### 3. Database Migrations
+We use **Alembic** for database migrations. Initialize your database to the latest schema:
 
 ```bash
 alembic upgrade head
 ```
 
-### 3. Rolling Back
-If you need to undo the last migration:
+### 4. Running the Application
+The system consists of the API server and the Background Scheduler (which currently runs inside the app lifecycle).
 
 ```bash
-alembic downgrade -1
+# Run the development server with hot-reloading
+fastapi dev
 ```
+Your server will be running at `http://127.0.0.1:8000`. 
+Swagger UI API Docs are available at `http://127.0.0.1:8000/docs`.
 
 ---
 
-## 🔀 Switching Databases
+## 🧑‍💻 Contributing & Coding Guide
 
-By default, the application is configured to use **SQLite** (specifically the `aiosqlite` async driver). Because of our modular architecture in `app/core/database.py` and `alembic/env.py`, switching to a production-grade database like **PostgreSQL** is incredibly seamless!
+We welcome contributions! To make it easy for anyone to jump in, here is a quick map of the architecture:
 
-### Steps to Switch to PostgreSQL:
+- **`app/api/routes/`**: FastAPI endpoints. Keep these thin! They should mostly parse requests and call service functions.
+- **`app/services/`**: The core business logic. 
+  - `storage_account_service.py`: Handles Google OAuth, Drive quotas, and the complex Bin Packing logic for calculating migrations.
+- **`app/models/`**: SQLAlchemy ORM models (`virtual_file.py` and `storage_account.py`).
+- **`app/tasks/`**: Background jobs.
+  - `scheduler.py`: Configures `APScheduler` to run jobs periodically.
+  - `migration.py`: The worker script that executes the actual Google Drive API calls to move chunks and update the database.
 
-1. **Install the async Postgres driver**:
-   ```bash
-   pip install asyncpg psycopg2-binary
-   ```
-2. **Update your `.env` file**:
-   Change your `DATABASE_URL` to point to your Postgres instance using the `postgresql+asyncpg` dialect.
-   ```env
-   # .env
-   DATABASE_URL=postgresql+asyncpg://user:password@localhost:5432/dbname
-   ```
-3. **Apply your schema**:
-   Postgres will automatically be picked up by Alembic (which seamlessly strips the async driver dynamically for migrations) and by your `AsyncEngine`. Simply run `alembic upgrade head`.
-
-> **Note:** If you ever switch back to SQLite, make sure to prefix it with `sqlite+aiosqlite:///` so the asynchronous engine knows how to talk to it!
-
----
-
-## 📦 Switching Storage Providers
-
-The project uses a unified storage abstraction located in `app/utils/storage.py`. All storage implementations (Local Storage, AWS S3, etc.) inherit from the same base class and expose identical methods (e.g., `save()`, `read()`, `delete()`).
-
-### How to Switch
-
-You don't need to rewrite your business logic when switching from Local Storage to Cloud Storage. You just need to instantiate the correct provider class.
-
-For example, when initializing your storage layer, simply swap out the class being used:
-
-```python
-from app.utils.storage import LocalStorage, S3Storage
-
-# ------------------------------
-# Option A: Use Local Storage
-# ------------------------------
-storage_provider = LocalStorage(base_dir="./uploads")
-
-# ------------------------------
-# Option B: Use AWS S3 Storage
-# ------------------------------
-# Make sure to install boto3: pip install boto3
-storage_provider = S3Storage(
-    bucket_name="my-app-bucket", 
-    region_name="us-east-1",
-    aws_access_key_id="YOUR_ACCESS_KEY", 
-    aws_secret_access_key="YOUR_SECRET_KEY"
-)
-
-# ------------------------------
-# Usage remains exactly the same!
-# ------------------------------
-# filepath = await storage_provider.save(file_bytes, "users/1/avatar.png")
+### How to generate a new Database Migration
+If you modify or add any models in `app/models/`, you must generate a new Alembic migration:
+```bash
+alembic revision --autogenerate -m "Add description of your changes"
+alembic upgrade head
 ```
 
-Because of this abstraction, the rest of your application does not need to know *where* the files are being saved, it just calls `storage_provider.save(...)` and it handles the rest based on what provider is configured!
+### Best Practices
+- **Use Async**: Everything is async! Use `await db.execute(...)` for database queries, not `db.query(...)`.
+- **Handle Google API Limits**: Google Drive is very aggressive with rate limits. Any loops that hit the Drive API must have batching and `asyncio.sleep()` built into them.
+- **Avoid Loading All Rows**: If a user has 50,000 file chunks, `result.scalars().all()` will crash the server. Use `.limit()` and explicit `func.count()` queries for background tasks (as implemented in `migration.py`).

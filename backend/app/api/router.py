@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.routes import auth, users, storage_accounts, files
+from app.api.routes import auth, users, storage_accounts, files, folders
 
 api_router = APIRouter()
 
@@ -14,3 +14,6 @@ api_router.include_router(storage_accounts.router, prefix="/storage-accounts", t
 
 # Endless Storage — Virtual Files (upload / download / manage)
 api_router.include_router(files.router, prefix="/files", tags=["files"])
+
+# Endless Storage — Virtual Folders (hierarchy)
+api_router.include_router(folders.router, prefix="/folders", tags=["folders"])

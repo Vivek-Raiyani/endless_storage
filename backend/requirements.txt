@@ -13,3 +13,4 @@ sqlite-web
 authlib
 httpx
 cryptography
+apscheduler

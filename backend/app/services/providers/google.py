@@ -1,5 +1,7 @@
 import logging
-from typing import Tuple, List
+import time
+from datetime import datetime, timezone
+from typing import Dict, Tuple, List
 
 import httpx
 
@@ -14,16 +16,28 @@ GOOGLE_DRIVE_FILES_URL = "https://www.googleapis.com/drive/v3/files"
 GOOGLE_DRIVE_UPLOAD_URL = "https://www.googleapis.com/upload/drive/v3/files"
 GOOGLE_DRIVE_ABOUT_URL = "https://www.googleapis.com/drive/v3/about"
 
+# Refresh tokens slightly before Google expires them (tokens live ~3600s).
+_TOKEN_EXPIRY_MARGIN_SECONDS = 300
+
 
 class GoogleDriveProvider(StorageProvider):
     """
     Google Drive implementation of the StorageProvider interface.
     """
 
-    async def _refresh_access_token(self, encrypted_refresh_token: str) -> str:
+    # Process-wide cache: encrypted_refresh_token -> (access_token, expires_at_epoch).
+    # Avoids one OAuth round-trip per chunk (a 50GB folder = ~200 chunks).
+    _token_cache: Dict[str, Tuple[str, float]] = {}
+
+    async def get_access_token(self, encrypted_refresh_token: str) -> Tuple[str, datetime]:
         """
-        Exchange the stored (encrypted) refresh token for a short-lived access token.
+        Return a (possibly cached) short-lived access token and its expiry time (UTC).
         """
+        cached = self._token_cache.get(encrypted_refresh_token)
+        now = time.time()
+        if cached and cached[1] - _TOKEN_EXPIRY_MARGIN_SECONDS > now:
+            return cached[0], datetime.fromtimestamp(cached[1], tz=timezone.utc)
+
         refresh_token = decrypt_token(encrypted_refresh_token)
         if not refresh_token:
             raise ValueError("Could not decrypt refresh token")
@@ -37,7 +51,18 @@ class GoogleDriveProvider(StorageProvider):
             })
             resp.raise_for_status()
             data = resp.json()
-            return data["access_token"]
+
+        access_token = data["access_token"]
+        expires_at = now + int(data.get("expires_in", 3600))
+        self._token_cache[encrypted_refresh_token] = (access_token, expires_at)
+        return access_token, datetime.fromtimestamp(expires_at, tz=timezone.utc)
+
+    async def _refresh_access_token(self, encrypted_refresh_token: str) -> str:
+        """
+        Exchange the stored (encrypted) refresh token for a short-lived access token.
+        """
+        access_token, _ = await self.get_access_token(encrypted_refresh_token)
+        return access_token
 
     async def get_quota(self, encrypted_refresh_token: str) -> dict:
         access_token = await self._refresh_access_token(encrypted_refresh_token)
@@ -110,6 +135,9 @@ class GoogleDriveProvider(StorageProvider):
                     "Content-Type": "application/json",
                     "X-Upload-Content-Type": mime_type or "application/octet-stream",
                     "X-Upload-Content-Length": str(file_size),
+                    # The browser PUTs bytes directly to the session URI. Google only returns
+                    # CORS headers on that URI if the session was initiated with the browser's Origin.
+                    "Origin": settings.FRONTEND_URL,
                 },
             )
             resp.raise_for_status()
@@ -129,6 +157,9 @@ class GoogleDriveProvider(StorageProvider):
         download_url = f"{GOOGLE_DRIVE_FILES_URL}/{provider_file_id}?alt=media"
         return download_url, access_token
 
+    def build_download_url(self, provider_file_id: str) -> str:
+        return f"{GOOGLE_DRIVE_FILES_URL}/{provider_file_id}?alt=media"
+
     async def delete_file(self, encrypted_refresh_token: str, provider_file_id: str) -> None:
         access_token = await self._refresh_access_token(encrypted_refresh_token)
         async with httpx.AsyncClient() as client:
@@ -136,8 +167,12 @@ class GoogleDriveProvider(StorageProvider):
                 f"{GOOGLE_DRIVE_FILES_URL}/{provider_file_id}",
                 headers={"Authorization": f"Bearer {access_token}"},
             )
+            if resp.status_code == 404:
+                # Already gone (e.g. user deleted it directly in Drive) — nothing to clean up.
+                logger.info(f"Drive file {provider_file_id} already deleted (404)")
+                return
             if resp.status_code not in (200, 204):
-                logger.warning(f"Failed to delete Drive file {provider_file_id}: {resp.status_code}")
+                raise ValueError(f"Failed to delete Drive file {provider_file_id}: {resp.status_code}")
 
     async def batch_delete_files(self, encrypted_refresh_token: str, provider_file_ids: List[str]) -> None:
         if not provider_file_ids:
@@ -174,7 +209,7 @@ class GoogleDriveProvider(StorageProvider):
         access_token = await self._refresh_access_token(encrypted_refresh_token)
         async with httpx.AsyncClient() as client:
             resp = await client.post(
-                f"{GOOGLE_DRIVE_FILES_URL}/{provider_file_id}/permissions",
+                f"{GOOGLE_DRIVE_FILES_URL}/{provider_file_id}/permissions?sendNotificationEmail=false",
                 headers={"Authorization": f"Bearer {access_token}"},
                 json={"type": "user", "role": "reader", "emailAddress": target_email}
             )

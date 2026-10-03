@@ -38,9 +38,13 @@ class VirtualFolder(SoftDeleteMixin, Base):
     # Self-referential relationship for parent-child folder hierarchy
     children = relationship(
         "VirtualFolder",
-        backref="parent",
-        remote_side="VirtualFolder.parent_id",
+        back_populates="parent",
         cascade="all, delete-orphan"
+    )
+    parent = relationship(
+        "VirtualFolder",
+        back_populates="children",
+        remote_side="[VirtualFolder.id]"
     )
     
     

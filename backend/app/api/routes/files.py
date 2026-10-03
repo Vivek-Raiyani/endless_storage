@@ -10,8 +10,10 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from app.api import deps
+from app.models.virtual_file import VirtualFile
 from app.core.config import settings
 from app.models.user import User
 from app.schemas.storage import (
@@ -22,7 +24,7 @@ from app.schemas.storage import (
     ConfirmChunkRequest,
     DownloadPrepareResponse,
     ChunkDownloadInfo,
-    RenameFileRequest,
+    UpdateFileRequest,
     UploadSessionOut,
 )
 from app.schemas.response import DataResponse, MessageResponse
@@ -32,6 +34,43 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+
+@router.get("/recent", response_model=DataResponse[List[VirtualFileOut]])
+async def list_recent_files(
+    current_user: User = Depends(deps.get_current_user),
+    db: AsyncSession = Depends(deps.get_db),
+):
+    """List 20 most recent files for the user."""
+    stmt = select(VirtualFile).where(
+        VirtualFile.user_id == current_user.id,
+        VirtualFile.status == "available",
+        VirtualFile.is_deleted == False
+    ).order_by(VirtualFile.created_at.desc()).limit(20)
+    files = (await db.execute(stmt)).scalars().all()
+    return DataResponse(data=files)
+
+@router.get("/trash", response_model=DataResponse[List[VirtualFileOut]])
+async def list_trashed_files(
+    current_user: User = Depends(deps.get_current_user),
+    db: AsyncSession = Depends(deps.get_db),
+):
+    """List all soft-deleted files for the user."""
+    stmt = select(VirtualFile).where(
+        VirtualFile.user_id == current_user.id,
+        VirtualFile.is_deleted == True,
+        VirtualFile.status != "deleted" # "deleted" means permanently deleted chunks
+    ).order_by(VirtualFile.deleted_at.desc())
+    files = (await db.execute(stmt)).scalars().all()
+    return DataResponse(data=files)
+
+@router.get("/shared", response_model=DataResponse[List[VirtualFileOut]])
+async def list_shared_files(
+    current_user: User = Depends(deps.get_current_user),
+    db: AsyncSession = Depends(deps.get_db),
+):
+    """List files shared with the user (placeholder for now)."""
+    # Endless Storage doesn't support true cross-user sharing yet
+    return DataResponse(data=[])
 
 @router.get("/", response_model=DataResponse[List[VirtualFileOut]])
 async def list_files(
@@ -164,14 +203,29 @@ async def get_file(
 
 
 @router.patch("/{file_id}", response_model=DataResponse[VirtualFileOut])
-async def rename_file(
+async def update_file(
     file_id: UUID,
-    body: RenameFileRequest,
+    body: UpdateFileRequest,
     current_user: User = Depends(deps.get_current_user),
     db: AsyncSession = Depends(deps.get_db),
 ):
-    """Rename a virtual file."""
-    virtual_file = await virtual_file_service.rename_file(db, file_id, current_user.id, body.name)
+    """Rename, move, or change metadata of a virtual file."""
+    update_data = body.model_dump(exclude_unset=True)
+    
+    kwargs = {}
+    if "name" in update_data:
+        kwargs["name"] = update_data["name"]
+    if "starred" in update_data:
+        kwargs["starred"] = update_data["starred"]
+    if "folder_id" in update_data:
+        kwargs["folder_id"] = update_data["folder_id"]
+
+    virtual_file = await virtual_file_service.update_file(
+        db=db,
+        file_id=file_id,
+        user_id=current_user.id,
+        **kwargs
+    )
     if not virtual_file:
         raise HTTPException(status_code=404, detail="File not found")
     return DataResponse(data=virtual_file)
@@ -180,11 +234,29 @@ async def rename_file(
 @router.delete("/{file_id}", response_model=MessageResponse)
 async def delete_file(
     file_id: UUID,
+    permanent: bool = Query(False, description="Permanently delete the file"),
     current_user: User = Depends(deps.get_current_user),
     db: AsyncSession = Depends(deps.get_db),
 ):
-    """Delete a virtual file and remove all its chunks from Google Drive."""
-    success = await virtual_file_service.delete_file(db, file_id, current_user.id)
-    if not success:
-        raise HTTPException(status_code=404, detail="File not found")
-    return MessageResponse(message="File deleted successfully")
+    """Delete a virtual file and optionally remove all its chunks from Google Drive."""
+    if permanent:
+        await virtual_file_service.delete_file_forever(db, file_id, current_user.id)
+        return MessageResponse(message="File deleted permanently")
+    else:
+        success = await virtual_file_service.delete_file(db, file_id, current_user.id)
+        if not success:
+            raise HTTPException(status_code=404, detail="File not found")
+        return MessageResponse(message="File moved to trash")
+
+@router.post("/{file_id}/restore", response_model=DataResponse[VirtualFileOut])
+async def restore_file(
+    file_id: UUID,
+    current_user: User = Depends(deps.get_current_user),
+    db: AsyncSession = Depends(deps.get_db),
+):
+    """Restore a virtual file from trash."""
+    try:
+        virtual_file = await virtual_file_service.restore_file(db, file_id, current_user.id)
+        return DataResponse(data=virtual_file)
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=str(e))

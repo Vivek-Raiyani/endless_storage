@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from datetime import datetime
 from typing import Tuple
 
 class StorageProvider(ABC):
@@ -55,5 +56,19 @@ class StorageProvider(ABC):
     async def delete_file(self, encrypted_refresh_token: str, provider_file_id: str) -> None:
         """
         Permanently delete a chunk file from the provider.
+        Must treat "already deleted" (404) as success and raise on any other failure.
         """
+        pass
+
+    @abstractmethod
+    async def get_access_token(self, encrypted_refresh_token: str) -> Tuple[str, datetime]:
+        """
+        Return a short-lived access token and its UTC expiry time.
+        Implementations should cache tokens until shortly before expiry.
+        """
+        pass
+
+    @abstractmethod
+    def build_download_url(self, provider_file_id: str) -> str:
+        """Return the direct-download URL for a chunk (used with a Bearer access token)."""
         pass

@@ -5,7 +5,14 @@ class Settings(BaseSettings):
     SERVER_HOST: str = "http://localhost:8000"
     DATABASE_URL: str
     FRONTEND_URL: str = "http://localhost:3000"
-    BACKEND_CORS_ORIGINS: list[str] = ["*"]
+    # Cookies are sent cross-origin (allow_credentials=True), so origins must be explicit — never "*".
+    BACKEND_CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
+
+    # Drive-like lifecycle settings
+    # Items in the trash are permanently purged after this many days (Google Drive uses 30).
+    TRASH_RETENTION_DAYS: int = 30
+    # Google resumable upload URIs are valid for ~1 week; uploads older than this are abandoned.
+    UPLOAD_SESSION_TTL_HOURS: int = 24 * 7
 
     # Auth Settings
     SECRET_KEY: str
@@ -31,8 +38,8 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_SECRET: str | None = None
 
     # Google Drive Storage Settings
-    # Scope for Drive file access (drive.file = non-sensitive, only files created by the app)
-    GOOGLE_DRIVE_SCOPE: str = "https://www.googleapis.com/auth/drive.file"
+    # Scope for Drive access (full access needed for sharing/copying files during account migration)
+    GOOGLE_DRIVE_SCOPE: str = "https://www.googleapis.com/auth/drive"
     # Fixed chunk size for all file splits (default: 256 MB)
     CHUNK_SIZE_BYTES: int = 256 * 1024 * 1024
     # Fernet symmetric key (base64-url-encoded 32 bytes) for encrypting Drive refresh tokens at rest

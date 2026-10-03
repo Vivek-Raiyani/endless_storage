@@ -99,7 +99,7 @@ class FileChunk(Base):
 
     # Relationships
     virtual_file = relationship("VirtualFile", back_populates="chunks")
-    storage_account = relationship("StorageAccount", back_populates="chunks")
+    storage_account = relationship("StorageAccount", foreign_keys=[storage_account_id], back_populates="chunks")
 
 
 class UploadSession(Base):

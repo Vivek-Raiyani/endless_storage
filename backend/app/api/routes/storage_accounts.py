@@ -19,6 +19,7 @@ from app.core.config import settings
 from app.models.user import User
 from app.schemas.storage import (
     StorageAccountOut,
+    StorageSummaryOut,
     DisconnectPreviewResponse,
     DisconnectRequest,
 )
@@ -40,6 +41,16 @@ async def list_storage_accounts(
     return DataResponse(data=[StorageAccountOut.from_orm_with_computed(a) for a in accounts])
 
 
+@router.get("/summary", response_model=DataResponse[StorageSummaryOut])
+async def get_storage_summary(
+    current_user: User = Depends(deps.get_current_user),
+    db: AsyncSession = Depends(deps.get_db),
+):
+    """Get aggregated storage metrics across all connected accounts."""
+    summary = await storage_account_service.get_user_storage_summary(db, current_user.id)
+    return DataResponse(data=summary)
+
+
 @router.get("/connect/google")
 async def connect_google_drive(
     request: Request,
@@ -53,7 +64,12 @@ async def connect_google_drive(
     # Store user_id in session so the callback knows who to associate the account with
     request.session["connecting_user_id"] = str(current_user.id)
     logger.info(f"Starting Drive connect flow for user {current_user.id}")
-    return await oauth.google_drive.authorize_redirect(request, redirect_uri)
+    return await oauth.google_drive.authorize_redirect(
+        request, 
+        redirect_uri, 
+        access_type="offline", 
+        prompt="consent"
+    )
 
 
 @router.get("/connect/google/callback", name="connect_google_drive_callback")
@@ -100,7 +116,7 @@ async def connect_google_drive_callback(
     )
 
     logger.info(f"Connected Drive account {provider_email} for user {user_id}")
-    redirect_url = f"{settings.FRONTEND_URL}/dashboard/storage?connected=1"
+    redirect_url = f"{settings.FRONTEND_URL}/drive"
     return RedirectResponse(url=redirect_url)
 
 

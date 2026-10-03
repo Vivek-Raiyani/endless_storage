@@ -47,7 +47,7 @@ class StorageAccount(Base):
 
     # Relationships
     owner = relationship("User", foreign_keys=[user_id], lazy="select")
-    chunks = relationship("FileChunk", back_populates="storage_account", lazy="select")
+    chunks = relationship("FileChunk", foreign_keys="[FileChunk.storage_account_id]", back_populates="storage_account", lazy="select")
 
     @property
     def available_bytes(self) -> int:

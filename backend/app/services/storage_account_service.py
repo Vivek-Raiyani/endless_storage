@@ -36,6 +36,16 @@ async def get_account(db: AsyncSession, account_id: UUID, user_id: UUID) -> Opti
     )
     return result.scalars().first()
 
+async def get_user_storage_summary(db: AsyncSession, user_id: UUID) -> dict:
+    accounts = await get_accounts_for_user(db, user_id)
+    return {
+        "accounts_count": len(accounts),
+        "active_accounts_count": len([a for a in accounts]),
+        "total_bytes": sum(a.total_bytes or 0 for a in accounts),
+        "used_bytes": sum(a.used_bytes or 0 for a in accounts),
+        "available_bytes": sum(a.available_bytes or 0 for a in accounts),
+        "trash_bytes": 0,
+    }
 
 async def connect_google_drive_account(
     db: AsyncSession,
@@ -151,7 +161,7 @@ async def preview_disconnect(db: AsyncSession, account_id: UUID, user_id: UUID) 
     chunks_result = await db.execute(
         select(FileChunk).where(
             FileChunk.storage_account_id == account_id,
-            FileChunk.status != "deleted"
+            FileChunk.status.in_(["complete", "verified"])
         )
     )
     chunks = chunks_result.scalars().all()
@@ -215,6 +225,7 @@ async def disconnect_account(db: AsyncSession, account_id: UUID, user_id: UUID, 
             
         # Apply the allocation plan to chunks
         for chunk_id, target_acc_id in preview["allocation_plan"].items():
+            logger.info(f"Assigning target_account_id {target_acc_id} to chunk {chunk_id} for migration")
             await db.execute(
                 update(FileChunk)
                 .where(FileChunk.id == chunk_id)

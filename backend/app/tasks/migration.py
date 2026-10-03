@@ -69,9 +69,30 @@ async def _process_deleting_account(db: AsyncSession, account: StorageAccount):
                     for p_id in provider_ids:
                         await provider.delete_file(account.encrypted_refresh_token, p_id)
             
+            file_ids = set()
             for chunk in batch:
+                file_ids.add(chunk.file_id)
                 await db.delete(chunk)
             deleted_count += len(batch)
+            await db.flush()
+            
+            # Clean up VirtualFiles that no longer have any chunks
+            if file_ids:
+                from sqlalchemy import delete
+                from app.models.virtual_file import VirtualFile
+                
+                active_files_res = await db.execute(
+                    select(FileChunk.file_id)
+                    .where(FileChunk.file_id.in_(list(file_ids)))
+                    .distinct()
+                )
+                active_files = set(active_files_res.scalars().all())
+                
+                orphaned_files = file_ids - active_files
+                if orphaned_files:
+                    await db.execute(
+                        delete(VirtualFile).where(VirtualFile.id.in_(list(orphaned_files)))
+                    )
         except Exception as e:
             logger.error(f"Failed to delete batch of chunks from drive: {e}")
             
@@ -99,18 +120,37 @@ async def _process_migrating_account(db: AsyncSession, account: StorageAccount):
         await db.commit()
         return
         
+    from sqlalchemy.orm import selectinload
+    
     # Get only the 20 chunks we will process in this run
     result = await db.execute(
-        select(FileChunk).where(FileChunk.storage_account_id == account.id).limit(20)
+        select(FileChunk)
+        .options(selectinload(FileChunk.virtual_file))
+        .where(FileChunk.storage_account_id == account.id)
+        .limit(20)
     )
     chunks = result.scalars().all()
+    
+    # Pre-fetch chunk counts to avoid N+1 queries in the loop
+    chunk_counts = {}
+    if chunks:
+        file_ids = list({chunk.file_id for chunk in chunks})
+        count_result = await db.execute(
+            select(FileChunk.file_id, func.count(FileChunk.id))
+            .where(FileChunk.file_id.in_(file_ids))
+            .group_by(FileChunk.file_id)
+        )
+        chunk_counts = {row[0]: row[1] for row in count_result.all()}
         
     provider = ProviderFactory.get_provider(account.provider)
     migrated_count = 0
     for chunk in chunks: # Batch size 20
         try:
-            if not chunk.target_account_id:
-                logger.error(f"Chunk {chunk.id} has no target_account_id set.")
+            if not chunk.target_account_id or not chunk.provider_file_id:
+                logger.error(f"Chunk {chunk.id} has no target_account_id or provider_file_id set. Removing from DB.")
+                await db.delete(chunk)
+                await db.commit()
+                migrated_count += 1
                 continue
                 
             # Fetch the pre-assigned target account
@@ -130,13 +170,36 @@ async def _process_migrating_account(db: AsyncSession, account: StorageAccount):
                 target_account.provider_account_email
             )
             
-            new_provider_file_id = await target_provider.copy_file(
-                target_account.encrypted_refresh_token,
-                chunk.provider_file_id,
-                target_account.root_folder_id,
-                f"migrated_chunk_{chunk.id}"
-            )
+            # Determine correct name for the migrated chunk
+            virtual_file = chunk.virtual_file
+            num_chunks = chunk_counts.get(chunk.file_id, 0)
             
+            if virtual_file and num_chunks == 1:
+                chunk_name = virtual_file.name
+            else:
+                chunk_name = f"{chunk.file_id}_chunk_{chunk.chunk_index}"
+                
+            # Google Drive permissions can take a few seconds to propagate.
+            # We retry the copy operation a few times if we get a 404.
+            import asyncio
+            max_retries = 3
+            new_provider_file_id = None
+            
+            for attempt in range(max_retries):
+                try:
+                    new_provider_file_id = await target_provider.copy_file(
+                        target_account.encrypted_refresh_token,
+                        chunk.provider_file_id,
+                        target_account.root_folder_id,
+                        chunk_name
+                    )
+                    break
+                except ValueError as e:
+                    if attempt < max_retries - 1:
+                        logger.info(f"Copy failed, retrying in 2 seconds (attempt {attempt + 1}/{max_retries})...")
+                        await asyncio.sleep(2)
+                    else:
+                        raise e
             # Delete original
             await provider.delete_file(account.encrypted_refresh_token, chunk.provider_file_id)
             
@@ -161,6 +224,14 @@ async def _process_migrating_account(db: AsyncSession, account: StorageAccount):
             await db.commit() 
         except Exception as e:
             logger.error(f"Failed to migrate chunk {chunk.id}: {e}")
+            
+            # If the file truly doesn't exist on the source drive, share_file will raise a 404.
+            # If it's just a propagation delay, copy_file will raise a 404.
+            # To be completely safe and avoid data loss, we do NOT detach the chunk or delete it here.
+            # We leave it exactly as is (with its target_account_id intact) so the scheduled job
+            # will automatically pick it up and retry the migration on the next run.
+            
+            # We don't increment migrated_count because it failed.
             
     if migrated_count > 0:
         account.status_message = f"Migrating chunks... ({total_chunks - migrated_count} remaining)"

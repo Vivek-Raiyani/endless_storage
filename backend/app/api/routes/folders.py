@@ -87,14 +87,23 @@ async def update_folder(
     db: AsyncSession = Depends(deps.get_db),
 ):
     """Rename, move, or change metadata of a folder."""
+    update_data = body.model_dump(exclude_unset=True)
+    
+    kwargs = {}
+    if "name" in update_data:
+        kwargs["name"] = update_data["name"]
+    if "parent_id" in update_data:
+        kwargs["parent_id"] = update_data["parent_id"]
+    if "color" in update_data:
+        kwargs["color"] = update_data["color"]
+    if "starred" in update_data:
+        kwargs["starred"] = update_data["starred"]
+
     folder = await virtual_folder_service.update_folder(
         db=db,
         folder_id=folder_id,
         user_id=current_user.id,
-        name=body.name,
-        parent_id=body.parent_id,
-        color=body.color,
-        starred=body.starred,
+        **kwargs
     )
     if not folder:
         raise HTTPException(status_code=404, detail="Folder not found")

@@ -22,19 +22,25 @@ export function DriveView({ currentFolderId }: { currentFolderId: string | null 
   const [fileToDelete, setFileToDelete] = useState<string | null>(null);
   const [fileToDeleteForever, setFileToDeleteForever] = useState<string | null>(null);
 
+  const isSpecialView = currentFolderId === 'shared' || currentFolderId === 'recent' || currentFolderId === 'trash';
+
   const handleCreateFolder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newFolderName.trim()) return;
 
+    const targetFolderId = isSpecialView ? null : currentFolderId;
+
     try {
-      await api.folders.create(newFolderName, currentFolderId);
+      await api.folders.create(newFolderName, targetFolderId);
       setIsNewFolderModalOpen(false);
       setNewFolderName('');
       toast.success('Folder created successfully');
 
       // Refresh folders
-      const foldersRes = await api.folders.list(currentFolderId);
-      setFolders(foldersRes.data);
+      if (!isSpecialView) {
+        const foldersRes = await api.folders.list(targetFolderId);
+        setFolders(foldersRes.data);
+      }
     } catch (error) {
       console.error('Failed to create folder:', error);
       toast.error('Failed to create folder');
@@ -48,9 +54,10 @@ export function DriveView({ currentFolderId }: { currentFolderId: string | null 
     // Reset input so the same file can be uploaded again if needed
     e.target.value = '';
 
+    const targetFolderId = isSpecialView ? null : currentFolderId;
     const tempId = Math.random().toString(36).substring(7);
 
-    const manager = new UploadManager(file, currentFolderId, (progress) => {
+    const manager = new UploadManager(file, targetFolderId, (progress) => {
       setUploadProgress(prev => {
         if (!prev[tempId]) return prev;
         return { ...prev, [tempId]: { ...prev[tempId], progress } };
@@ -63,8 +70,10 @@ export function DriveView({ currentFolderId }: { currentFolderId: string | null 
       await manager.upload();
 
       // Refresh the file list
-      const filesRes = await api.files.list(currentFolderId);
-      setFiles(filesRes.data);
+      if (!isSpecialView) {
+        const filesRes = await api.files.list(targetFolderId);
+        setFiles(filesRes.data);
+      }
       toast.success(`Uploaded ${file.name}`);
     } catch (error) {
       if (error instanceof Error && error.message === 'Upload aborted') {
@@ -82,7 +91,6 @@ export function DriveView({ currentFolderId }: { currentFolderId: string | null 
     }
   };
 
-  const isSpecialView = currentFolderId === 'shared' || currentFolderId === 'recent' || currentFolderId === 'trash';
 
   const handleDrop = async (e: React.DragEvent, targetFolderId: string | null) => {
     e.preventDefault();

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { api, VirtualFolder, VirtualFile } from '@/lib/api';
-import { Folder, File as FileIcon, MoreVertical, FileDown, Trash2, FolderDown, FolderPlus, X, RotateCcw, Image as ImageIcon, Video, Music, FileText, Archive } from 'lucide-react';
+import { Folder, File as FileIcon, MoreVertical, FileDown, Trash2, FolderDown, FolderPlus, X, RotateCcw, Image as ImageIcon, Video, Music, FileText, Archive, Share2 } from 'lucide-react';
 import Link from 'next/link';
 import { downloadFile, downloadFolder } from '@/lib/download';
 import { UploadManager } from '@/lib/upload';
@@ -28,6 +28,7 @@ export function DriveView({ currentFolderId }: { currentFolderId: string | null 
   const [folders, setFolders] = useState<VirtualFolder[]>([]);
   const [files, setFiles] = useState<VirtualFile[]>([]);
   const [currentFolder, setCurrentFolder] = useState<VirtualFolder | null>(null);
+  const [currentUser, setCurrentUser] = useState<{ id: string; email: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<{ [key: string]: { progress: number; name: string; abort: () => void } }>({});
@@ -38,7 +39,21 @@ export function DriveView({ currentFolderId }: { currentFolderId: string | null 
   const [fileToDelete, setFileToDelete] = useState<string | null>(null);
   const [fileToDeleteForever, setFileToDeleteForever] = useState<string | null>(null);
   const [folderToDelete, setFolderToDelete] = useState<{ id: string, name: string } | null>(null);
+  const [folderToShare, setFolderToShare] = useState<{ id: string, name: string } | null>(null);
+  const [shareEmail, setShareEmail] = useState('');
+  const [sharedUsers, setSharedUsers] = useState<Array<{ user_id: string; email: string; role: string }> | null>(null);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (folderToShare) {
+      api.folders.listShares(folderToShare.id)
+        .then(res => setSharedUsers(res.data))
+        .catch(() => setSharedUsers(null));
+    } else {
+      setSharedUsers(null);
+      setShareEmail('');
+    }
+  }, [folderToShare]);
 
   // Close dropdown when clicking anywhere
   useEffect(() => {
@@ -171,19 +186,36 @@ export function DriveView({ currentFolderId }: { currentFolderId: string | null 
       setLoading(true);
       try {
         if (isSpecialView) {
-          const filesRes = await api.fetch<{ data: any[] }>(`/files/${currentFolderId}`);
-          setFolders([]); // Special views only show files for now
-          setFiles(filesRes.data);
+          if (currentFolderId === 'shared') {
+            const [foldersRes, filesRes, userRes] = await Promise.all([
+              api.fetch<{ data: VirtualFolder[] }>('/folders/shared').catch(() => ({ data: [] })),
+              api.fetch<{ data: VirtualFile[] }>('/files/shared').catch(() => ({ data: [] })),
+              currentUser ? Promise.resolve({ data: currentUser }) : api.auth.me().catch(() => ({ data: null }))
+            ]);
+            setFolders(foldersRes.data || []);
+            setFiles(filesRes.data || []);
+            if (userRes.data && userRes.data.id) {
+               setCurrentUser(userRes.data);
+            }
+          } else {
+            const filesRes = await api.fetch<{ data: any[] }>(`/files/${currentFolderId}`);
+            setFolders([]); // Special views only show files for now
+            setFiles(filesRes.data);
+          }
           setCurrentFolder(null);
         } else {
-          const [foldersRes, filesRes, currentFolderRes] = await Promise.all([
+          const [foldersRes, filesRes, currentFolderRes, userRes] = await Promise.all([
             api.folders.list(currentFolderId),
             api.files.list(currentFolderId),
-            currentFolderId ? api.folders.get(currentFolderId) : Promise.resolve({ data: null })
+            currentFolderId ? api.folders.get(currentFolderId) : Promise.resolve({ data: null }),
+            currentUser ? Promise.resolve({ data: currentUser }) : api.auth.me().catch(() => ({ data: null }))
           ]);
           setFolders(foldersRes.data);
           setFiles(filesRes.data);
           setCurrentFolder(currentFolderRes.data);
+          if (userRes.data && userRes.data.id) {
+             setCurrentUser(userRes.data);
+          }
         }
       } catch (error) {
         if (error instanceof Error && (error.message.includes('Not authenticated') || error.message.includes('Unauthorized') || error.message.includes('Could not validate credentials'))) {
@@ -227,15 +259,24 @@ export function DriveView({ currentFolderId }: { currentFolderId: string | null 
             currentFolderId === 'shared' ? 'Shared with me' : currentFolderId
           ) : currentFolderId ? (
             <>
-              <Link
-                href="/drive"
-                className="hover:underline text-gray-600 px-2 py-1 rounded-lg transition-colors shrink-0"
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={(e) => handleDrop(e, null)}
-              >
-                My Drive
-              </Link>
+              {currentFolder?.owner_id && currentUser?.id && currentFolder.owner_id !== currentUser.id ? (
+                <Link
+                  href="/drive/shared"
+                  className="hover:underline text-gray-600 px-2 py-1 rounded-lg transition-colors shrink-0"
+                >
+                  Shared with me
+                </Link>
+              ) : (
+                <Link
+                  href="/drive"
+                  className="hover:underline text-gray-600 px-2 py-1 rounded-lg transition-colors shrink-0"
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => handleDrop(e, null)}
+                >
+                  My Drive
+                </Link>
+              )}
               <span className="text-gray-400 shrink-0">/</span>
               <span
                 className="px-2 py-1 rounded-lg transition-colors truncate"
@@ -337,6 +378,17 @@ export function DriveView({ currentFolderId }: { currentFolderId: string | null 
                           >
                             <FolderDown className="w-4 h-4 text-gray-600" />
                           </button>
+                          <button
+                            className="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-blue-50 rounded-full transition-all"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setFolderToShare({ id: folder.id, name: folder.name });
+                            }}
+                            title="Share Folder"
+                          >
+                            <Share2 className="w-4 h-4 text-blue-500" />
+                          </button>
                           <button 
                             className="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-red-50 rounded-full transition-all"
                             onClick={async (e) => {
@@ -375,6 +427,17 @@ export function DriveView({ currentFolderId }: { currentFolderId: string | null 
                               }}
                             >
                               <FolderDown className="w-4 h-4" /> Download
+                            </button>
+                            <button
+                              className="w-full text-left px-4 py-2.5 text-sm text-blue-600 hover:bg-blue-50 flex items-center gap-3"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setActiveDropdown(null);
+                                setFolderToShare({ id: folder.id, name: folder.name });
+                              }}
+                            >
+                              <Share2 className="w-4 h-4" /> Share
                             </button>
                             <button
                               className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-3"
@@ -647,7 +710,7 @@ export function DriveView({ currentFolderId }: { currentFolderId: string | null 
                       setFolders(prev => prev.filter(f => f.id !== folderToDelete.id));
                       toast.success('Folder deleted');
                     } catch (error) {
-                      toast.error('Failed to delete folder');
+                      toast.error(error instanceof Error ? error.message : 'Failed to delete folder');
                     } finally {
                       setFolderToDelete(null);
                     }
@@ -655,6 +718,97 @@ export function DriveView({ currentFolderId }: { currentFolderId: string | null 
                   className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-full transition-colors"
                 >
                   Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Share Folder Modal */}
+      {folderToShare && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-2">Share Folder</h2>
+              <p className="text-gray-500 mb-6">Share "{folderToShare.name}" with another user.</p>
+              
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">User Email</label>
+                <div className="flex gap-2">
+                  <input
+                    type="email"
+                    value={shareEmail}
+                    onChange={(e) => setShareEmail(e.target.value)}
+                    placeholder="Enter email address"
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                    autoFocus
+                  />
+                  <button
+                    onClick={async () => {
+                      if (!shareEmail.trim()) return;
+                      try {
+                        await api.folders.share(folderToShare.id, shareEmail.trim());
+                        toast.success('Folder shared successfully');
+                        setShareEmail('');
+                        const res = await api.folders.listShares(folderToShare.id);
+                        setSharedUsers(res.data);
+                      } catch (error) {
+                        toast.error('Failed to share folder');
+                      }
+                    }}
+                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors"
+                  >
+                    Share
+                  </button>
+                </div>
+              </div>
+
+              {sharedUsers && sharedUsers.length > 0 && (
+                <div className="mb-6">
+                  <h3 className="text-sm font-medium text-gray-700 mb-3">People with access</h3>
+                  <div className="space-y-3 max-h-40 overflow-y-auto pr-2">
+                    {sharedUsers.map(user => (
+                      <div key={user.user_id} className="flex items-center justify-between bg-gray-50 p-3 rounded-xl border border-gray-100">
+                        <div className="flex items-center gap-3">
+                           <div className="w-8 h-8 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center font-medium text-sm shrink-0">
+                             {user.email.charAt(0).toUpperCase()}
+                           </div>
+                           <div className="min-w-0">
+                             <p className="text-sm font-medium text-gray-900 truncate">{user.email}</p>
+                             <p className="text-xs text-gray-500 capitalize">{user.role}</p>
+                           </div>
+                        </div>
+                        <button
+                          onClick={async () => {
+                            try {
+                              await api.folders.unshare(folderToShare.id, user.email);
+                              setSharedUsers(prev => prev ? prev.filter(u => u.email !== user.email) : null);
+                              toast.success(`Access removed for ${user.email}`);
+                            } catch (error) {
+                              toast.error('Failed to remove access');
+                            }
+                          }}
+                          className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors shrink-0"
+                          title="Remove access"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-3 mt-6">
+                <button
+                  onClick={() => {
+                    setFolderToShare(null);
+                    setShareEmail('');
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors w-full"
+                >
+                  Done
                 </button>
               </div>
             </div>
@@ -683,7 +837,7 @@ export function DriveView({ currentFolderId }: { currentFolderId: string | null 
                       setFiles(prev => prev.filter(f => f.id !== fileToDelete));
                       toast.success('File moved to trash');
                     } catch (error) {
-                      toast.error('Failed to delete file');
+                      toast.error(error instanceof Error ? error.message : 'Failed to delete file');
                     } finally {
                       setFileToDelete(null);
                     }
@@ -718,7 +872,7 @@ export function DriveView({ currentFolderId }: { currentFolderId: string | null 
                       setFiles(prev => prev.filter(f => f.id !== fileToDeleteForever));
                       toast.success('File deleted permanently');
                     } catch (error) {
-                      toast.error('Failed to permanently delete file');
+                      toast.error(error instanceof Error ? error.message : 'Failed to permanently delete file');
                     } finally {
                       setFileToDeleteForever(null);
                     }

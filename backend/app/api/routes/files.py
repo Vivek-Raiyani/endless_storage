@@ -16,6 +16,7 @@ from app.api import deps
 from app.models.virtual_file import VirtualFile
 from app.core.config import settings
 from app.models.user import User
+from app.services.errors import ServiceError, to_http
 from app.schemas.storage import (
     VirtualFileOut,
     InitiateUploadRequest,
@@ -240,14 +241,17 @@ async def delete_file(
     db: AsyncSession = Depends(deps.get_db),
 ):
     """Delete a virtual file and optionally remove all its chunks from Google Drive."""
-    if permanent:
-        await virtual_file_service.delete_file_forever(db, file_id, current_user.id)
-        return MessageResponse(message="File deleted permanently")
-    else:
-        success = await virtual_file_service.delete_file(db, file_id, current_user.id)
-        if not success:
-            raise HTTPException(status_code=404, detail="File not found")
-        return MessageResponse(message="File moved to trash")
+    try:
+        if permanent:
+            await virtual_file_service.delete_file_forever(db, file_id, current_user.id)
+            return MessageResponse(message="File deleted permanently")
+        else:
+            success = await virtual_file_service.delete_file(db, file_id, current_user.id)
+            if not success:
+                raise HTTPException(status_code=404, detail="File not found")
+            return MessageResponse(message="File moved to trash")
+    except ServiceError as e:
+        raise to_http(e)
 
 @router.post("/{file_id}/restore", response_model=DataResponse[VirtualFileOut])
 async def restore_file(

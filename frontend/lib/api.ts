@@ -7,6 +7,7 @@ export interface VirtualFolder {
   owner_id: string;
   color: string | null;
   starred: boolean;
+  shared: boolean;
   status: string;
   created_at: string;
   updated_at: string;
@@ -133,6 +134,18 @@ export const api = {
     },
     delete: (folderId: string) => {
       return api.fetch<void>(`/folders/${folderId}`, { method: 'DELETE' });
+    },
+    share: (folderId: string, target_user_email: string, role: 'viewer' | 'editor' = 'viewer') => {
+      return api.fetch<{ message: string }>(`/folders/${folderId}/share`, {
+        method: 'POST',
+        body: JSON.stringify({ target_user_email, role })
+      });
+    },
+    listShares: (folderId: string) => {
+      return api.fetch<{ data: Array<{ user_id: string; email: string; role: string; first_name?: string; last_name?: string }> }>(`/folders/${folderId}/share`);
+    },
+    unshare: (folderId: string, target_user_email: string) => {
+      return api.fetch<{ message: string }>(`/folders/${folderId}/share/${target_user_email}`, { method: 'DELETE' });
     }
   },
 

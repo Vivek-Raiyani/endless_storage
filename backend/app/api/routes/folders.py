@@ -13,6 +13,7 @@ from app.schemas.storage import (
     UpdateFolderRequest,
     ShareFolderRequest,
     FolderDownloadPrepareResponse,
+    FolderPermissionOut,
 )
 from app.schemas.response import DataResponse, MessageResponse
 from app.services import virtual_folder_service
@@ -142,6 +143,24 @@ async def share_folder(
         raise HTTPException(status_code=400, detail=str(e))
         
     return MessageResponse(message=f"Folder successfully shared with {body.target_user_email}")
+
+@router.get("/{folder_id}/share", response_model=DataResponse[List[FolderPermissionOut]])
+async def get_folder_shares(
+    folder_id: UUID,
+    current_user: User = Depends(deps.get_current_user),
+    db: AsyncSession = Depends(deps.get_db),
+):
+    """Get a list of users this folder is shared with."""
+    try:
+        shares = await virtual_folder_service.list_folder_permissions(
+            db=db,
+            folder_id=folder_id,
+            user_id=current_user.id,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+        
+    return DataResponse(data=shares)
 
 
 @router.delete("/{folder_id}/share/{target_email}", response_model=MessageResponse)

@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { api, VirtualFolder, VirtualFile } from '@/lib/api';
 import { Folder, File as FileIcon, MoreVertical, FileDown, Trash2, FolderDown, FolderPlus, X, RotateCcw, Image as ImageIcon, Video, Music, FileText, Archive, Share2 } from 'lucide-react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { downloadFile, downloadFolder } from '@/lib/download';
 import { UploadManager } from '@/lib/upload';
 import { Upload } from 'lucide-react';
@@ -25,6 +26,8 @@ const getFilePlaceholderIcon = (mimeType: string | undefined | null, className: 
 };
 
 export function DriveView({ currentFolderId }: { currentFolderId: string | null }) {
+  const searchParams = useSearchParams();
+  const searchQuery = searchParams.get('q') || '';
   const [folders, setFolders] = useState<VirtualFolder[]>([]);
   const [files, setFiles] = useState<VirtualFile[]>([]);
   const [currentFolder, setCurrentFolder] = useState<VirtualFolder | null>(null);
@@ -62,7 +65,7 @@ export function DriveView({ currentFolderId }: { currentFolderId: string | null 
     return () => window.removeEventListener('click', handleClick);
   }, []);
 
-  const isSpecialView = currentFolderId === 'shared' || currentFolderId === 'recent' || currentFolderId === 'trash';
+  const isSpecialView = currentFolderId === 'shared' || currentFolderId === 'recent' || currentFolderId === 'trash' || currentFolderId === 'search';
 
   const handleCreateFolder = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -89,7 +92,7 @@ export function DriveView({ currentFolderId }: { currentFolderId: string | null 
         setFolders(foldersRes.data);
       }
     } catch (error) {
-      console.error('Failed to create folder:', error);
+      console.log('Failed to create folder:', error);
       toast.error('Failed to create folder');
     }
   };
@@ -132,8 +135,8 @@ export function DriveView({ currentFolderId }: { currentFolderId: string | null 
       if (error instanceof Error && error.message === 'Upload aborted') {
         toast.info(`Cancelled upload of ${file.name}`);
       } else {
-        console.error('Upload failed:', error);
-        toast.error('Upload failed. Do you have connected storage accounts?');
+        console.log('Upload failed:', error);
+        toast.error(error instanceof Error ? error.message : 'Upload failed. Do you have connected storage accounts?');
       }
     } finally {
       setUploadProgress(prev => {
@@ -166,7 +169,7 @@ export function DriveView({ currentFolderId }: { currentFolderId: string | null 
         toast.success('Folder moved successfully');
       }
     } catch (error) {
-      console.error('Failed to move item:', error);
+      console.log('Failed to move item:', error);
       toast.error('Failed to move item');
     }
   };
@@ -197,9 +200,16 @@ export function DriveView({ currentFolderId }: { currentFolderId: string | null 
             if (userRes.data && userRes.data.id) {
                setCurrentUser(userRes.data);
             }
+          } else if (currentFolderId === 'search') {
+            const [foldersRes, filesRes] = await Promise.all([
+               api.folders.search(searchQuery).catch(() => ({ data: [] })),
+               api.files.search(searchQuery).catch(() => ({ data: [] }))
+            ]);
+            setFolders(foldersRes.data || []);
+            setFiles(filesRes.data || []);
           } else {
-            const filesRes = await api.fetch<{ data: any[] }>(`/files/${currentFolderId}`);
-            setFolders([]); // Special views only show files for now
+            const filesRes = await api.fetch<{ data: VirtualFile[] }>(`/files/${currentFolderId}`);
+            setFolders([]); // Other special views only show files for now
             setFiles(filesRes.data);
           }
           setCurrentFolder(null);
@@ -222,7 +232,7 @@ export function DriveView({ currentFolderId }: { currentFolderId: string | null 
           try { await api.auth.signout(); } catch (e) { }
           setAuthError(true);
         } else {
-          console.error('Failed to load drive contents:', error);
+          console.log('Failed to load drive contents:', error);
         }
       } finally {
         setLoading(false);
@@ -234,7 +244,7 @@ export function DriveView({ currentFolderId }: { currentFolderId: string | null 
     window.addEventListener('openNewFolderModal', handleOpenFolderModal);
 
     return () => window.removeEventListener('openNewFolderModal', handleOpenFolderModal);
-  }, [currentFolderId, isSpecialView]);
+  }, [currentFolderId, isSpecialView, searchQuery]);
 
   if (loading) {
     return (

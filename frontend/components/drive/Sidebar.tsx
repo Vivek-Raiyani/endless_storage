@@ -68,15 +68,13 @@ export function Sidebar() {
 
       {/* Sidebar Container */}
       <div className={`
-        fixed inset-y-0 left-0 z-[70] md:z-0 w-64 bg-gray-50 flex flex-col pt-4 px-3 shrink-0 
+        fixed inset-y-0 left-0 z-[70] md:z-0 w-64 bg-gray-50 flex flex-col pt-2 px-3 shrink-0 
         md:relative md:translate-x-0 transition-none
         ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
-      <Link href="/" className="flex items-center gap-2 px-3 mb-8 hover:opacity-80 transition-opacity">
-        <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-          <span className="text-white font-bold text-lg leading-none">E</span>
-        </div>
-        <span className="text-xl font-medium text-gray-800">Endless Storage</span>
+      <Link href="/" className="flex items-center gap-1 mb-2 hover:opacity-80 transition-opacity">
+        <img src="/logo.png" alt="Endless Storage Logo" className="w-12 h-12 shrink-0 object-contain drop-shadow-sm" />
+        <span className="text-[1.2rem] font-semibold text-gray-800 whitespace-nowrap tracking-tight">Endless Storage</span>
       </Link>
 
       <div className="relative group/new-btn mb-6">

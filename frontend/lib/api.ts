@@ -87,7 +87,7 @@ export const api = {
       });
     },
     me: () => {
-      return api.fetch<{ data: { email: string; first_name: string; last_name: string } }>('/users/profile');
+      return api.fetch<{ data: { id: string; email: string; first_name: string; last_name: string } }>('/users/profile');
     },
     signout: () => {
       return api.fetch<void>('/auth/signout', { method: 'POST' });
@@ -113,6 +113,9 @@ export const api = {
   },
 
   folders: {
+    search: (q: string) => {
+      return api.fetch<DataResponse<VirtualFolder[]>>(`/folders/search?q=${encodeURIComponent(q)}`);
+    },
     list: (parentId?: string | null) => {
       const qs = parentId ? `?parent_id=${parentId}` : '';
       return api.fetch<DataResponse<VirtualFolder[]>>(`/folders/${qs}`);
@@ -150,6 +153,9 @@ export const api = {
   },
 
   files: {
+    search: (q: string) => {
+      return api.fetch<DataResponse<VirtualFile[]>>(`/files/search?q=${encodeURIComponent(q)}`);
+    },
     list: (folderId?: string | null) => {
       const qs = folderId ? `?folder_id=${folderId}` : '';
       return api.fetch<DataResponse<VirtualFile[]>>(`/files/${qs}`);

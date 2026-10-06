@@ -52,6 +52,17 @@ async def list_shared_folders(
     return DataResponse(data=folders)
 
 
+@router.get("/search", response_model=DataResponse[List[VirtualFolderOut]])
+async def search_folders(
+    q: str = Query(..., description="Search query"),
+    current_user: User = Depends(deps.get_current_user),
+    db: AsyncSession = Depends(deps.get_db),
+):
+    """Search folders by name."""
+    folders = await virtual_folder_service.search_folders(db, current_user.id, q)
+    return DataResponse(data=folders)
+
+
 @router.get("/", response_model=DataResponse[List[VirtualFolderOut]])
 async def list_folders(
     parent_id: Optional[UUID] = Query(None, description="List folders inside this parent"),

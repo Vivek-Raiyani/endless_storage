@@ -137,6 +137,23 @@ async def create_folder(
     return folder
 
 
+async def search_folders(db: AsyncSession, user_id: UUID, query: str) -> List[VirtualFolder]:
+    if not query.strip():
+        return []
+    q = f"%{query}%"
+    result = await db.execute(
+        select(VirtualFolder)
+        .where(
+            VirtualFolder.user_id == user_id,
+            VirtualFolder.is_deleted == False,
+            VirtualFolder.name.ilike(q)
+        )
+        .order_by(VirtualFolder.name)
+        .limit(50)
+    )
+    return list(result.scalars().all())
+
+
 async def list_folders(
     db: AsyncSession,
     user_id: UUID,

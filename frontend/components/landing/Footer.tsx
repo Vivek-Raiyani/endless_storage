@@ -14,11 +14,11 @@ export function Footer({ onOpenAuth }: { onOpenAuth: () => void }) {
         {/* Left Side: Logo & Description */}
         <div className="flex flex-col gap-6 max-w-sm">
           <div className="flex items-center gap-3">
-            {/* TODO: Replace with Trivven provided Logo */}
-            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-lg">
-              <span className="text-blue-600 font-bold text-xl leading-none">E</span>
+            {/* Logo */}
+            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-lg shrink-0">
+              <img src="/logo.png" alt="Endless Storage Logo" className="w-7 h-7 object-contain" />
             </div>
-            <span className="text-2xl font-bold text-white tracking-tight">Endless Storage</span>
+            <span className="text-2xl font-bold text-white tracking-tight whitespace-nowrap">Endless Storage</span>
           </div>
           <p className="text-blue-100 leading-relaxed text-sm md:text-base opacity-90">
             The intelligent storage engine that pools your scattered free cloud accounts into one seamless, unlimited drive.

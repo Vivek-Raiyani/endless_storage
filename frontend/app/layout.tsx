@@ -20,6 +20,7 @@ const ranade = localFont({
 export const metadata: Metadata = {
   title: "Endless Storage",
   description: "Unlimited cloud storage, powered by your Google accounts.",
+  icons: { icon: '/logo.png' }
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

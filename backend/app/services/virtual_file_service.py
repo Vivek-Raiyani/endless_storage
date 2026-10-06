@@ -84,6 +84,23 @@ async def require_file(
 # Listing / retrieval
 # ---------------------------------------------------------------------------
 
+async def search_files(db: AsyncSession, user_id: UUID, query: str) -> List[VirtualFile]:
+    if not query.strip():
+        return []
+    q = f"%{query}%"
+    result = await db.execute(
+        select(VirtualFile)
+        .where(
+            VirtualFile.user_id == user_id,
+            VirtualFile.is_deleted == False,
+            VirtualFile.name.ilike(q)
+        )
+        .order_by(VirtualFile.name)
+        .limit(50)
+    )
+    return list(result.scalars().all())
+
+
 async def list_files(
     db: AsyncSession,
     user_id: UUID,

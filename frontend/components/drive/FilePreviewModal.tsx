@@ -17,6 +17,7 @@ export function FilePreviewModal({ file, onClose }: Props) {
 
   const isImage = file.mime_type.startsWith('image/');
   const isVideo = file.mime_type.startsWith('video/');
+  const isPdf = file.mime_type === 'application/pdf';
 
   useEffect(() => {
     let activeUrl: string | null = null;
@@ -47,7 +48,7 @@ export function FilePreviewModal({ file, onClose }: Props) {
       }
     }
 
-    if (isImage || isVideo) {
+    if (isImage || isVideo || isPdf) {
       loadPreview();
     } else {
       setError('Preview is not available for this file type.');
@@ -122,6 +123,12 @@ export function FilePreviewModal({ file, onClose }: Props) {
             src={blobUrl} 
             alt={file.name}
             className="max-w-full max-h-full object-contain rounded-lg shadow-2xl animate-in zoom-in-95 duration-300"
+          />
+        ) : blobUrl && isPdf ? (
+          <iframe
+            src={`${blobUrl}#toolbar=0`}
+            title={file.name}
+            className="w-full max-w-4xl h-[85vh] rounded-lg shadow-2xl animate-in zoom-in-95 duration-300 bg-white"
           />
         ) : blobUrl && isVideo ? (
           <video 

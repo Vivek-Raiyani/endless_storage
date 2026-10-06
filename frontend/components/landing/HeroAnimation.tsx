@@ -71,9 +71,9 @@ export function HeroAnimation() {
             r="4"
             fill="url(#orbGrad)"
             filter="url(#glow)"
-            initial={{ offsetDistance: "0%", opacity: 0 }}
+            initial={{ offsetDistance: "100%", opacity: 0 }}
             animate={{ 
-              offsetDistance: ["0%", "100%"],
+              offsetDistance: ["100%", "0%"],
               opacity: [0, 1, 1, 0],
             }}
             transition={{
@@ -117,20 +117,18 @@ export function HeroAnimation() {
         >
           {/* Glowing Aura */}
           <motion.circle 
-            cx="0" cy="0" r="45" 
-            fill="rgba(59, 130, 246, 0.2)" 
+            cx="0" cy="0" r="55" 
+            fill="rgba(59, 130, 246, 0.15)" 
             filter="url(#glow)"
             animate={{ scale: [1, 1.2, 1], opacity: [0.5, 0.8, 0.5] }}
             transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
           />
           
-          {/* The Standard App Logo */}
-          <rect x="-30" y="-30" width="60" height="60" rx="16" fill="white" filter="url(#shadow)" />
-          <text x="0" y="11" fontSize="32" fontWeight="800" fill="#2563eb" textAnchor="middle" style={{ fontFamily: 'sans-serif' }}>E</text>
-
-          {/* Infinity Symbol Label */}
-          <rect x="-24" y="45" width="48" height="24" rx="12" fill="#eff6ff" />
-          <text x="0" y="61" fontSize="16" fontWeight="bold" fill="#2563eb" textAnchor="middle">∞</text>
+          {/* The Standard App Logo Box */}
+          <circle cx="0" cy="0" r="36" fill="white" filter="url(#shadow)" stroke="#f1f5f9" strokeWidth="1" />
+          
+          {/* Custom Logo Image */}
+          <image href="/logo.png" x="-22" y="-22" width="44" height="44" />
         </motion.g>
 
       </svg>

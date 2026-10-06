@@ -73,6 +73,17 @@ async def list_shared_files(
     # Endless Storage doesn't support true cross-user sharing yet
     return DataResponse(data=[])
 
+@router.get("/search", response_model=DataResponse[List[VirtualFileOut]])
+async def search_files(
+    q: str = Query(..., description="Search query"),
+    current_user: User = Depends(deps.get_current_user),
+    db: AsyncSession = Depends(deps.get_db),
+):
+    """Search files by name."""
+    files = await virtual_file_service.search_files(db, current_user.id, q)
+    return DataResponse(data=files)
+
+
 @router.get("/", response_model=DataResponse[List[VirtualFileOut]])
 async def list_files(
     folder_id: Optional[UUID] = Query(default=None, description="Folder ID to list files from (None for root)"),

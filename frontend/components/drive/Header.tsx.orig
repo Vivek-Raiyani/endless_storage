@@ -2,7 +2,6 @@
 import React, { useEffect, useState } from 'react';
 import { Search, HelpCircle, Settings, LayoutGrid, LogOut, HardDrive, Plus, X, AlertTriangle, Menu, Unplug } from 'lucide-react';
 import { api } from '@/lib/api';
-import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { GoogleDriveLogo } from '@/components/landing/StackedProviders';
 
@@ -14,30 +13,6 @@ export function Header() {
   const [accountToDisconnect, setAccountToDisconnect] = useState<any>(null);
   const [disconnectPreview, setDisconnectPreview] = useState<{ can_migrate: boolean; affected_files_count: number; total_bytes_to_move: number; available_bytes_elsewhere: number } | null>(null);
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
-  const [isTyping, setIsTyping] = useState(false);
-
-  useEffect(() => {
-    if (!isTyping) {
-      setSearchQuery(searchParams.get('q') || '');
-    }
-  }, [searchParams, isTyping]);
-
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      if (isTyping) {
-        if (searchQuery.trim()) {
-          router.push(`/drive/search?q=${encodeURIComponent(searchQuery.trim())}`);
-        } else if (searchParams.get('q') !== null) {
-          router.push('/drive');
-        }
-        setIsTyping(false);
-      }
-    }, 400);
-    return () => clearTimeout(handler);
-  }, [searchQuery, isTyping, router, searchParams]);
 
   useEffect(() => {
     async function fetchUser() {
@@ -96,28 +71,16 @@ export function Header() {
             <Menu className="h-6 w-6" />
           </button>
           
-          <form 
-            className="w-full relative group hidden sm:block"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (searchQuery.trim()) {
-                router.push(`/drive/search?q=${encodeURIComponent(searchQuery.trim())}`);
-              } else {
-                router.push('/drive');
-              }
-            }}
-          >
+          <div className="w-full relative group hidden sm:block">
             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
               <Search className="h-5 w-5 text-gray-500" />
             </div>
             <input
               type="text"
-              value={searchQuery}
-              onChange={(e) => { setIsTyping(true); setSearchQuery(e.target.value); }}
               className="w-full block pl-12 pr-4 py-3 bg-[#eef2f6] border-transparent rounded-full text-gray-900 placeholder-gray-500 focus:bg-white focus:border-transparent focus:ring-0 focus:shadow-md transition-all outline-none"
               placeholder="Search in Drive"
             />
-          </form>
+          </div>
         </div>
         
         <div className="flex items-center  relative">

@@ -59,10 +59,10 @@ export function LandingLayout({ children }: { children: React.ReactNode }) {
   // Logo links to /home — works for both logged-in and logged-out users
   const LogoSlot = (
     <Link href="/" className="flex items-center gap-2 h-8">
-      <div className="w-7 h-7 bg-white rounded-lg flex items-center justify-center shadow-lg">
-        <span className="text-blue-600 font-bold text-sm leading-none">E</span>
+      <div className="w-7 h-7 bg-white rounded-md flex items-center justify-center shadow-sm shrink-0">
+        <img src="/logo.png" alt="Endless Storage Logo" className="w-5 h-5 object-contain" />
       </div>
-      <span className="hidden sm:inline text-sm font-bold tracking-tight text-white">
+      <span className="hidden sm:inline text-sm font-bold tracking-tight text-white whitespace-nowrap">
         Endless Storage
       </span>
     </Link>

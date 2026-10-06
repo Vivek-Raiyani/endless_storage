@@ -67,7 +67,7 @@ export function NotchLeftWing({
             ? "M 0 20 C 11.046 20 20 11.046 20 0 H 21 V 21 H 0 Z"
             : "M 0 0 C 11.046 0 20 8.954 20 20 H 21 V -1 H 0 Z"
         }
-        fill="currentColor"
+        fill="currentColor" stroke="currentColor" strokeWidth="1"
       />
     </svg>
   );
@@ -99,7 +99,7 @@ export function NotchRightWing({
             ? "M 20 20 C 8.954 20 0 11.046 0 0 H -1 V 21 H 20 Z"
             : "M 20 0 C 8.954 0 0 8.954 0 20 H -1 V -1 H 20 Z"
         }
-        fill="currentColor"
+        fill="currentColor" stroke="currentColor" strokeWidth="1"
       />
     </svg>
   );
@@ -131,7 +131,7 @@ export function NotchCornerLeftWing({
             ? "M 0 20 H 20 C 8.954 20 0 11.046 0 0 V 20 Z"
             : "M 0 0 H 20 C 8.954 0 0 8.954 0 20 V 0 Z"
         }
-        fill="currentColor"
+        fill="currentColor" stroke="currentColor" strokeWidth="1"
       />
     </svg>
   );
@@ -163,7 +163,7 @@ export function NotchCornerRightWing({
             ? "M 20 20 H 0 C 11.046 20 20 11.046 20 0 V 20 Z"
             : "M 20 0 H 0 C 11.046 0 20 8.954 20 20 V 0 Z"
         }
-        fill="currentColor"
+        fill="currentColor" stroke="currentColor" strokeWidth="1"
       />
     </svg>
   );
@@ -427,7 +427,7 @@ export function NotchNav({
       )}
       {...props}
     >
-      <div className="relative flex h-full w-full flex-col rounded-none md:rounded-2xl bg-white text-gray-900 antialiased transition-colors duration-200 overflow-hidden">
+      <div className="relative flex h-full w-full flex-col rounded-none md:rounded-2xl bg-white text-gray-900 antialiased transition-colors duration-200 overflow-hidden ring-[1px] ring-blue-600">
         <div
           aria-hidden="true"
           onClick={handleCloseDropdown}

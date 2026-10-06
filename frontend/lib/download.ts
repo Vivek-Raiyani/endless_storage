@@ -1,5 +1,6 @@
 import * as fflate from 'fflate';
 import { api } from './api';
+import { toast } from 'sonner';
 // streamSaver.mitm = 'https://...'; (default is ok for most modern browsers in same origin or localhost)
 
 async function verifyChunksPreFlight(chunks: Array<{ download_url: string; access_token: string }>) {
@@ -83,7 +84,7 @@ export async function downloadFile(fileId: string, filename: string) {
     }
 
     console.error('File download failed:', error);
-    alert('Download failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    toast.error('Download failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
   }
 }
 
@@ -178,6 +179,40 @@ export async function downloadFolder(folderId: string, folderName: string) {
     }
 
     console.error('Folder download failed:', error);
-    alert('Folder download failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    toast.error('Folder download failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
   }
+}
+
+export async function getFileBlob(fileId: string, mimeType: string, onProgress?: (progress: number) => void): Promise<Blob> {
+  const res = await api.fetch<{ data: { chunks: Array<{ download_url: string; access_token: string; chunk_index: number }> } }>(`/files/${fileId}/download`);
+  const { chunks } = res.data;
+
+  if (!chunks || chunks.length === 0) {
+    throw new Error('No chunks found for this file.');
+  }
+
+  const chunkBuffers: Uint8Array[] = [];
+  let downloadedChunks = 0;
+  
+  for (const chunk of chunks) {
+    const chunkRes = await fetch(chunk.download_url, {
+      headers: {
+        'Authorization': `Bearer ${chunk.access_token}`
+      }
+    });
+    
+    if (!chunkRes.ok) {
+      throw new Error(`Failed to download chunk ${chunk.chunk_index}`);
+    }
+
+    const arrayBuffer = await chunkRes.arrayBuffer();
+    chunkBuffers.push(new Uint8Array(arrayBuffer));
+    
+    downloadedChunks++;
+    if (onProgress) {
+      onProgress(downloadedChunks / chunks.length);
+    }
+  }
+  
+  return new Blob(chunkBuffers as BlobPart[], { type: mimeType });
 }

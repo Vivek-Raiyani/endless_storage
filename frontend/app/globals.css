@@ -23,3 +23,13 @@ body {
   color: var(--foreground);
   font-family: var(--font-ranade), sans-serif;
 }
+
+@layer utilities {
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}

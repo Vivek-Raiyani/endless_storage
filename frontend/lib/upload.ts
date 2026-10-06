@@ -2,6 +2,100 @@ import { api } from './api';
 
 export type UploadProgressCallback = (progress: number, totalChunks: number, uploadedChunks: number) => void;
 
+async function generateThumbnail(file: File): Promise<string | null> {
+  if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
+    return null;
+  }
+  
+  return new Promise((resolve) => {
+    try {
+      const url = URL.createObjectURL(file);
+      
+      if (file.type.startsWith('image/')) {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const maxDim = 150;
+          let w = img.width;
+          let h = img.height;
+          
+          if (w > maxDim || h > maxDim) {
+            if (w > h) {
+              h = (h / w) * maxDim;
+              w = maxDim;
+            } else {
+              w = (w / h) * maxDim;
+              h = maxDim;
+            }
+          }
+          
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, w, h);
+            resolve(canvas.toDataURL('image/jpeg', 0.6));
+          } else {
+            resolve(null);
+          }
+          URL.revokeObjectURL(url);
+        };
+        img.onerror = () => {
+          URL.revokeObjectURL(url);
+          resolve(null);
+        };
+        img.src = url;
+      } else if (file.type.startsWith('video/')) {
+        const video = document.createElement('video');
+        video.muted = true;
+        video.playsInline = true;
+        video.preload = 'metadata';
+        
+        video.onloadeddata = () => {
+          video.currentTime = video.duration ? Math.min(1, video.duration / 2) : 1; // Get frame at 1s or middle
+        };
+        
+        video.onseeked = () => {
+          const canvas = document.createElement('canvas');
+          const maxDim = 150;
+          let w = video.videoWidth;
+          let h = video.videoHeight;
+          
+          if (w > maxDim || h > maxDim) {
+            if (w > h) {
+              h = (h / w) * maxDim;
+              w = maxDim;
+            } else {
+              w = (w / h) * maxDim;
+              h = maxDim;
+            }
+          }
+          
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(video, 0, 0, w, h);
+            resolve(canvas.toDataURL('image/jpeg', 0.6));
+          } else {
+            resolve(null);
+          }
+          URL.revokeObjectURL(url);
+        };
+        
+        video.onerror = () => {
+          URL.revokeObjectURL(url);
+          resolve(null);
+        };
+        
+        video.src = url;
+      }
+    } catch (e) {
+      resolve(null);
+    }
+  });
+}
+
 export class UploadManager {
   private file: File;
   private folderId?: string | null;
@@ -24,12 +118,21 @@ export class UploadManager {
   }
 
   async upload(): Promise<string> {
+    // Generate thumbnail before uploading
+    let thumbnail = null;
+    try {
+      thumbnail = await generateThumbnail(this.file);
+    } catch (e) {
+      console.warn("Could not generate thumbnail");
+    }
+
     // Step 1: Initiate upload with the backend
     const initiateRes = await api.files.upload({
       name: this.file.name,
       size: this.file.size,
       mime_type: this.file.type || 'application/octet-stream',
       folder_id: this.folderId,
+      thumbnail: thumbnail,
     });
 
     const { file_id, chunks } = initiateRes.data;

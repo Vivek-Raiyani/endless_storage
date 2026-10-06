@@ -88,6 +88,7 @@ async def list_files(
     db: AsyncSession,
     user_id: UUID,
     folder_id: Optional[UUID] = None,
+    thumbnail: Optional[str] = None,
     sort_by: str = "name",
     order: str = "asc",
 ) -> List[VirtualFile]:
@@ -152,6 +153,7 @@ async def initiate_upload(
     size: int,
     mime_type: Optional[str],
     folder_id: Optional[UUID] = None,
+    thumbnail: Optional[str] = None,
 ) -> Tuple[VirtualFile, UploadSession, List[dict]]:
     """
     Main entry point for the upload flow.
@@ -202,6 +204,7 @@ async def initiate_upload(
             name=name.strip(),
             mime_type=mime_type,
             size=size,
+            thumbnail=thumbnail,
             status="uploading",
             folder_id=folder_id,
         )

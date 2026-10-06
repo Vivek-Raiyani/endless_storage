@@ -154,7 +154,7 @@ async def auth_google_callback(request: Request, db: AsyncSession = Depends(deps
     
     # Redirect to frontend and set tokens as HTTP-only cookies.
     # Tokens are NEVER exposed in the URL to prevent leakage via browser history.
-    redirect_url = f"{settings.FRONTEND_URL}/"
+    redirect_url = f"{settings.FRONTEND_URL}/drive"
     response = RedirectResponse(url=redirect_url)
     response.set_cookie(
         key="access_token",

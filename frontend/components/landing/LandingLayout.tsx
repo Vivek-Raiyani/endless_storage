@@ -19,49 +19,44 @@ export function LandingLayout({ children }: { children: React.ReactNode }) {
   const [isAuthModalOpen, setAuthModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("home");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
-  
+
   const router = useRouter();
   const pathname = usePathname();
 
-  const handleOpenAuth = () => setAuthModalOpen(true);
-
-  const checkAuth = () => {
+  // Check auth state to show correct nav button
+  useEffect(() => {
     api.auth.me()
       .then(() => setIsLoggedIn(true))
-      .catch(() => setIsLoggedIn(false))
-      .finally(() => setIsLoadingAuth(false));
-  };
+      .catch(() => setIsLoggedIn(false));
+  }, []);
+
+  const handleOpenAuth = () => setAuthModalOpen(true);
 
   useEffect(() => {
-    checkAuth();
-
     const handleOpenAuthEvent = () => setAuthModalOpen(true);
     window.addEventListener('open-auth-modal', handleOpenAuthEvent);
     return () => window.removeEventListener('open-auth-modal', handleOpenAuthEvent);
   }, []);
 
-  // Sync active tab with pathname for basic mapping
+  // Sync active tab with pathname
   useEffect(() => {
     if (pathname === '/') {
       setActiveTab('home');
     } else {
-      setActiveTab(''); // No active tab for inner pages like privacy
+      setActiveTab('');
     }
   }, [pathname]);
 
   const handleTabChange = (id: string) => {
     setActiveTab(id);
-    if (pathname !== '/') {
-      router.push(`/#${id}`);
-    } else {
-      const element = document.getElementById(id);
-      if (element) {
-        element.scrollIntoView({ behavior: 'smooth' });
-      }
+    // Scroll to section on the same page
+    const element = document.getElementById(id);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth' });
     }
   };
 
+  // Logo links to /home — works for both logged-in and logged-out users
   const LogoSlot = (
     <Link href="/" className="flex items-center gap-2 h-8">
       <div className="w-7 h-7 bg-white rounded-lg flex items-center justify-center shadow-lg">
@@ -75,29 +70,26 @@ export function LandingLayout({ children }: { children: React.ReactNode }) {
 
   const RightContentSlot = (
     <div className="flex items-center gap-3 h-8">
-      {!isLoadingAuth && (
-        isLoggedIn ? (
-          <Link 
-            href="/drive"
-            className="flex items-center gap-1.5 bg-white text-blue-900 px-4 py-1.5 rounded-full text-xs font-bold transition-transform hover:scale-105"
-          >
-            Dashboard <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
-        ) : (
-          <button 
-            onClick={handleOpenAuth}
-            className="flex items-center gap-1.5 bg-white text-blue-900 px-4 py-1.5 rounded-full text-xs font-bold transition-transform hover:scale-105"
-          >
-            Sign in
-          </button>
-        )
+      {isLoggedIn ? (
+        <Link
+          href="/drive"
+          className="flex items-center gap-1.5 bg-white text-blue-900 px-4 py-1.5 rounded-full text-xs font-semibold transition-transform"
+        >
+          Dashboard
+        </Link>
+      ) : (
+        <button
+          onClick={handleOpenAuth}
+          className="flex items-center gap-1.5 bg-white text-blue-900 px-4 py-1.5 rounded-full text-xs font-semibold transition-transform"
+        >
+          Sign in
+        </button>
       )}
     </div>
   );
 
   return (
     <div className="bg-white text-gray-900 font-sans selection:bg-blue-100 selection:text-blue-900">
-      
       <NotchNav
         items={NAV_ITEMS}
         activeId={activeTab}
@@ -112,12 +104,9 @@ export function LandingLayout({ children }: { children: React.ReactNode }) {
         </main>
       </NotchNav>
 
-      <AuthModal 
-        isOpen={isAuthModalOpen} 
-        onClose={() => {
-          setAuthModalOpen(false);
-          checkAuth();
-        }} 
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setAuthModalOpen(false)}
       />
     </div>
   );

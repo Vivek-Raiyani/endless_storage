@@ -177,7 +177,7 @@ export interface NotchItemProps
   icon?: LucideIcon | ComponentType<{ className?: string }>;
   badge?: string;
   disabled?: boolean;
-  onSelect: (id: string) => void;
+  onItemSelect: (id: string) => void;
 }
 
 export const NotchItem = forwardRef<HTMLButtonElement, NotchItemProps>(
@@ -191,7 +191,7 @@ export const NotchItem = forwardRef<HTMLButtonElement, NotchItemProps>(
       disabled,
       className,
       onClick,
-      onSelect,
+      onItemSelect,
       ...props
     },
     ref
@@ -202,7 +202,7 @@ export const NotchItem = forwardRef<HTMLButtonElement, NotchItemProps>(
         return;
       }
 
-      onSelect(id);
+      onItemSelect(id);
       onClick?.(event);
     };
 
@@ -210,7 +210,7 @@ export const NotchItem = forwardRef<HTMLButtonElement, NotchItemProps>(
       if (event.key === "Enter" || event.key === " ") {
         event.preventDefault();
         if (!disabled) {
-          onSelect(id);
+          onItemSelect(id);
         }
       }
     };
@@ -278,18 +278,18 @@ NotchItem.displayName = "NotchItem";
 interface NotchDropdownItemProps {
   item: NotchItemData;
   isSelected: boolean;
-  onSelect: (id: string) => void;
+  onItemSelect: (id: string) => void;
 }
 
 function NotchDropdownItem({
   item,
   isSelected,
-  onSelect,
+  onItemSelect,
 }: NotchDropdownItemProps) {
   const Icon = item.icon;
 
   const handleClick = () => {
-    onSelect(item.id);
+    onItemSelect(item.id);
   };
 
   return (
@@ -486,7 +486,7 @@ export function NotchNav({
                   badge={item.badge}
                   disabled={item.disabled}
                   isActive={item.id === activeId}
-                  onSelect={handleSelect}
+                  onItemSelect={handleSelect}
                 />
               ))}
             </div>
@@ -608,7 +608,7 @@ export function NotchNav({
                     key={item.id}
                     item={item}
                     isSelected={item.id === activeId}
-                    onSelect={handleSelect}
+                    onItemSelect={handleSelect}
                   />
                 ))}
               </div>

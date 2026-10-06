@@ -17,6 +17,7 @@ export interface VirtualFile {
   name: string;
   folder_id: string | null;
   size: number;
+  thumbnail?: string | null;
   mime_type: string;
   status: string;
   created_at: string;
@@ -153,8 +154,11 @@ export const api = {
     restore: (fileId: string) => {
       return api.fetch<{ data: VirtualFile }>(`/files/${fileId}/restore`, { method: 'POST' });
     },
-    upload: (data: { name: string; size: number; mime_type: string; folder_id?: string | null }) => {
-      return api.fetch<{ data: { upload_id: string; file_id: string; chunk_size: number; total_chunks: number; chunks: Array<{ chunk_id: string; index: number; offset: number; size: number; upload_url: string; storage_account_id: string }> } }>('/files/upload', {
+    upload: (data: { name: string; size: number;
+  thumbnail?: string | null; mime_type: string; folder_id?: string | null }) => {
+      return api.fetch<{ data: { upload_id: string; file_id: string; chunk_size: number;
+  thumbnail?: string | null; total_chunks: number; chunks: Array<{ chunk_id: string; index: number; offset: number; size: number;
+  thumbnail?: string | null; upload_url: string; storage_account_id: string }> } }>('/files/upload', {
         method: 'POST',
         body: JSON.stringify(data),
       });

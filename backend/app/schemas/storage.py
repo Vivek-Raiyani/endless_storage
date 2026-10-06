@@ -85,6 +85,7 @@ class InitiateUploadRequest(BaseModel):
     size: int = Field(gt=0)
     mime_type: Optional[str] = "application/octet-stream"
     folder_id: Optional[UUID] = None
+    thumbnail: Optional[str] = None
 
 
 class InitiateUploadResponse(BaseModel):
@@ -181,6 +182,7 @@ class VirtualFileOut(BaseModel):
     deleted_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
+    thumbnail: Optional[str] = None
 
     model_config = {"from_attributes": True, "populate_by_name": True}
 

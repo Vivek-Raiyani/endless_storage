@@ -20,6 +20,8 @@ class VirtualFile(SoftDeleteMixin, Base):
     # Original filename and MIME type
     name = Column(String(512), nullable=False)
     mime_type = Column(String(128), nullable=True)
+    thumbnail = Column(Text, nullable=True) # Base64 encoded tiny thumbnail image
+
 
     # Total size in bytes of the original file
     size = Column(BigInteger, nullable=False, default=0)

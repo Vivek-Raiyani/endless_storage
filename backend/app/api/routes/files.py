@@ -105,6 +105,7 @@ async def initiate_upload(
             size=body.size,
             mime_type=body.mime_type,
             folder_id=body.folder_id,
+            thumbnail=body.thumbnail,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

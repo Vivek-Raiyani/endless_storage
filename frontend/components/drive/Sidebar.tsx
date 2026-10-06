@@ -4,10 +4,29 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { HardDrive, Users, Clock, Trash2, Plus, Settings } from 'lucide-react';
 import { api } from '@/lib/api';
+import { GoogleDriveLogo } from '../landing/StackedProviders';
 
 export function Sidebar() {
   const pathname = usePathname();
   const [summary, setSummary] = useState<{ total_bytes: number; used_bytes: number } | null>(null);
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
+
+  useEffect(() => {
+    const handleToggle = () => setIsMobileOpen(prev => !prev);
+    const handleClose = () => setIsMobileOpen(false);
+    window.addEventListener('toggleMobileSidebar', handleToggle);
+    // Close sidebar when navigating on mobile
+    window.addEventListener('closeMobileSidebar', handleClose);
+    return () => {
+      window.removeEventListener('toggleMobileSidebar', handleToggle);
+      window.removeEventListener('closeMobileSidebar', handleClose);
+    };
+  }, []);
+
+  useEffect(() => {
+    // Close mobile sidebar when route changes
+    setIsMobileOpen(false);
+  }, [pathname]);
 
   useEffect(() => {
     async function loadSummary() {
@@ -38,21 +57,35 @@ export function Sidebar() {
   ];
 
   return (
-    <div className="w-64 bg-gray-50 h-full flex flex-col pt-4 px-3 shrink-0">
-      <div className="flex items-center gap-2 px-3 mb-8">
+    <>
+      {/* Mobile Backdrop */}
+      {isMobileOpen && (
+        <div 
+          className="md:hidden fixed inset-0 bg-black/50 z-[60]" 
+          onClick={() => setIsMobileOpen(false)}
+        />
+      )}
+
+      {/* Sidebar Container */}
+      <div className={`
+        fixed inset-y-0 left-0 z-[70] md:z-0 w-64 bg-gray-50 flex flex-col pt-4 px-3 shrink-0 
+        md:relative md:translate-x-0 transition-none
+        ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'}
+      `}>
+      <Link href="/" className="flex items-center gap-2 px-3 mb-8 hover:opacity-80 transition-opacity">
         <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
           <span className="text-white font-bold text-lg leading-none">E</span>
         </div>
         <span className="text-xl font-medium text-gray-800">Endless Storage</span>
-      </div>
+      </Link>
 
-      <div className="relative group/new-btn mb-6 ml-1">
-        <button className="flex items-center gap-3 bg-white border border-gray-200 shadow-sm rounded-2xl py-3 px-4 w-40 hover:bg-gray-50 transition-colors">
+      <div className="relative group/new-btn mb-6">
+        <button className="flex items-center gap-3 bg-white border border-gray-200 shadow-sm rounded-2xl py-3 px-4 w-full hover:bg-gray-50 transition-colors">
           <Plus className="w-6 h-6 text-gray-700" />
           <span className="text-sm font-medium text-gray-700">New</span>
         </button>
         {/* Dropdown menu */}
-        <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-gray-100 rounded-xl shadow-lg opacity-0 invisible group-hover/new-btn:opacity-100 group-hover/new-btn:visible transition-all z-50 py-1">
+        <div className="absolute top-full left-0 mt-1 w-full bg-white border border-gray-100 rounded-xl shadow-lg opacity-0 invisible group-hover/new-btn:opacity-100 group-hover/new-btn:visible transition-all z-50 py-1">
           <button
             className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3"
             onClick={() => window.dispatchEvent(new Event('openNewFolderModal'))}
@@ -106,12 +139,17 @@ export function Sidebar() {
           )}
         </p>
         <button
-          onClick={() => window.dispatchEvent(new Event('openStorageSettings'))}
-          className="w-full flex items-center justify-center gap-2 py-2 rounded-full border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors"
+          onClick={() => {
+            window.dispatchEvent(new Event('openStorageSettings'));
+            window.dispatchEvent(new Event('closeMobileSidebar'));
+          }}
+          className="w-full flex items-center justify-center gap-2 py-3 rounded-full text-md font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-sm"
         >
-          <Settings className="w-4 h-4" /> Storage settings
+          <GoogleDriveLogo className="w-8 h-8 shrink-0" />
+          Connect Drives
         </button>
       </div>
     </div>
+    </>
   );
 }

@@ -56,7 +56,7 @@ export const iconPaths = {
 export function AnimatedIcon({ name, className }: { name: keyof typeof iconPaths, className?: string }) {
   const paths = iconPaths[name];
   
-  const pathVariants = {
+  const pathVariants: any = {
     rest: { pathLength: 1, opacity: 1 },
     hover: { 
       pathLength: [0, 1],

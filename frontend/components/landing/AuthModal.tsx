@@ -4,8 +4,10 @@ import React, { useState } from 'react';
 import { api } from '@/lib/api';
 import { X, Mail, Lock, User, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
+import { useRouter } from 'next/navigation';
 
 export function AuthModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+  const router = useRouter();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -36,7 +38,7 @@ export function AuthModal({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
         toast.success('Account created successfully!');
       }
       
-      // Force reload to apply cookies and navigate to drive
+      // Hard redirect so middleware cookie check fires and routes correctly
       window.location.assign('/drive');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Authentication failed. Please try again.');

@@ -9,12 +9,10 @@ import { RoadmapSection } from '@/components/landing/RoadmapSection';
 import { FaqSection } from '@/components/landing/FaqSection';
 import { FinalCtaSection } from '@/components/landing/FinalCtaSection';
 import { LandingLayout } from '@/components/landing/LandingLayout';
-import { api } from '@/lib/api';
 
 export default function LandingPage() {
+  // Auth guard is handled by middleware.ts at the edge — no client-side check needed.
   const handleOpenAuth = () => {
-    // This is handled by LandingLayout, but if a sub-component needs it, we can trigger it.
-    // For simplicity, we can dispatch a custom event to open the auth modal if needed from inner components.
     window.dispatchEvent(new Event('open-auth-modal'));
   };
 

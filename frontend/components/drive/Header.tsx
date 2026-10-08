@@ -319,7 +319,7 @@ export function Header() {
             </div>
             <div className="p-4 sm:p-6 border-t border-gray-100 bg-gray-50 flex justify-center shrink-0">
               <a
-                href={process.env.NEXT_PUBLIC_API_URL ? `${process.env.NEXT_PUBLIC_API_URL}/storage-accounts/connect/google` : 'http://localhost:8000/api/storage-accounts/connect/google'}
+                href={process.env.NEXT_PUBLIC_API_URL ? `${process.env.NEXT_PUBLIC_API_URL}/storage-accounts/connect/google` : '/api/storage-accounts/connect/google'}
                 className="flex items-center gap-2 bg-white text-gray-700 border border-gray-300 px-6 py-3 rounded-full font-medium hover:bg-gray-50 hover:border-gray-400 transition-all shadow-sm"
               >
                 <Plus className="w-5 h-5 shrink-0" />
